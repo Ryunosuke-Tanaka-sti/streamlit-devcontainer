@@ -1,0 +1,41 @@
+{
+    "name": "Streamlit",
+    "service": "python",
+    "dockerComposeFile": "./compose.yml",
+    "workspaceFolder": "/home/vscode/python",
+    "shutdownAction": "stopCompose",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.pylint",
+                "ms-python.black-formatter",
+                "ms-azuretools.vscode-azurefunctions",
+                "ms-vscode.vscode-json"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.linting.enabled": true,
+                "python.linting.pylintEnabled": true,
+                "python.formatting.provider": "black",
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        }
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/azure-cli:1": {},
+        "ghcr.io/devcontainers/features/github-cli": {}
+    },
+    "forwardPorts": [
+        8501
+    ],
+    "portsAttributes": {
+        "8501": {
+            "label": "Streamlit",
+            "onAutoForward": "notify"
+        }
+    },
+    "postCreateCommand": "pip install -r requirements.txt",
+    "remoteUser": "vscode",
+    "updateRemoteUserUID": true
+}
