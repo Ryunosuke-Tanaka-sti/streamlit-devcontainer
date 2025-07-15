@@ -7,10 +7,12 @@ st.set_page_config(layout="centered", page_title="AIチャットデモ")
 
 st.title("💬 AIチャットデモ")
 
-st.write("""
+st.write(
+    """
 Streamlitのチャット機能を使って、簡単な対話を体験してみましょう！
 下の入力ボックスにメッセージを入力して送信してください。
-""")
+"""
+)
 
 # チャット履歴を保持するセッションステートを初期化
 if "messages" not in st.session_state:
@@ -39,11 +41,15 @@ if prompt := st.chat_input("何か話しかけてください..."):
             elif "ありがとう" in prompt:
                 response = "どういたしまして！お役に立てて嬉しいです。"
             elif "天気" in prompt:
-                response = "すみません、今の天気情報は分かりません。私はまだ学習中です！"
+                response = (
+                    "すみません、今の天気情報は分かりません。私はまだ学習中です！"
+                )
             elif "名前" in prompt:
                 response = "私はStreamlitのデモアシスタントです！"
             elif "streamlit" in prompt.lower():
-                response = "StreamlitはPythonでWebアプリを簡単に作れる素晴らしいツールですよ！"
+                response = (
+                    "StreamlitはPythonでWebアプリを簡単に作れる素晴らしいツールですよ！"
+                )
             elif "さようなら" in prompt or "またね" in prompt:
                 response = "またお話ししましょう！良い一日を！"
             else:
