@@ -7,7 +7,6 @@ import numpy as np
 st.set_page_config(
     layout="centered",  # ページコンテンツを中央に配置
     page_title="Streamlitって、こんなにすごいんです！",  # ブラウザタブに表示されるタイトル
-    initial_sidebar_state="collapsed",  # サイドバーを初期状態で閉じる
 )
 
 # ヘッダー

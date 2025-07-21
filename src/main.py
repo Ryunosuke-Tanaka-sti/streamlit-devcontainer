@@ -9,13 +9,12 @@ def main():
     必要なライブラリ:
         - streamlit
     """
-
     top_page = st.Page(
         page="demo.py", title="Top", icon=":material/home:", default=True
     )
-    about = st.Page(page="chat.py", title="About", icon=":material/apps:")
+    chat = st.Page(page="chat.py", title="chat", icon=":material/apps:")
 
-    pg = st.navigation([top_page, about])
+    pg = st.navigation([top_page, chat])
     pg.run()
 
 
