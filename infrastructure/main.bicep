@@ -39,33 +39,6 @@ resource federatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/f
   }
 }
 
-// GitHub Identity に Web App の操作権限を付与（Website Contributor）
-resource webAppRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(webApp.id, githubIdentity.id, 'de139f84-1756-47ae-9be6-808fbbe84772')
-  scope: webApp
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'de139f84-1756-47ae-9be6-808fbbe84772') // Website Contributor
-    principalId: githubIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-  dependsOn: [
-    federatedCredential
-  ]
-}
-
-// GitHub Identity に リソースグループレベルでの読み取り権限を付与（Reader）
-resource readerRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, githubIdentity.id, 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7') // Reader
-    principalId: githubIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-  dependsOn: [
-    federatedCredential
-  ]
-}
-
 // App Service Plan
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-11-01' = {
   name: '${appName}-plan'
@@ -129,7 +102,6 @@ resource mainContainer 'Microsoft.Web/sites/sitecontainers@2024-04-01' = {
     image: 'ghcr.io/${toLower(githubRepoOwner)}/${toLower(githubRepoName)}:latest'
     isMain: true
     targetPort: containerPort
-    authType: 'Anonymous'
     environmentVariables: [
       {
         name: 'PORT'

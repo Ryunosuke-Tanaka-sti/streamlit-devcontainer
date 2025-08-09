@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# OIDC対応 2段階デプロイスクリプト（責務分離版）
+# OIDC対応 2段階デプロイスクリプト（責務分離版 - CLI権限管理）
 
 # .envファイルの読み込み
 if [ -f .env ]; then
@@ -41,7 +41,7 @@ echo "GitHub: $GITHUB_REPO_OWNER/$GITHUB_REPO_NAME"
 echo ""
 
 # =============================================================================
-# Stage 1: Bicepテンプレートでリソース作成（アプリケーション権限含む）
+# Stage 1: Bicepテンプレートでリソース作成（権限設定はCLIで実行）
 # =============================================================================
 echo "📦 Stage 1: Azure リソース作成中..."
 
@@ -55,7 +55,7 @@ fi
 echo "✅ Bicepテンプレートの構文チェック成功"
 echo ""
 
-echo "1-2. Bicepテンプレートをデプロイ中（アプリケーション権限含む）..."
+echo "1-2. Bicepテンプレートをデプロイ中（インフラリソースのみ）..."
 
 # 変数の値を確認
 echo "デプロイパラメーター:"
@@ -65,7 +65,7 @@ echo "  githubRepoOwner: $GITHUB_REPO_OWNER"
 echo "  githubRepoName: $GITHUB_REPO_NAME"
 echo ""
 
-# Bicepテンプレートをデプロイ（アプリケーション権限含む）
+# Bicepテンプレートをデプロイ（インフラリソースのみ、権限設定は後でCLI実行）
 # main.parameters.json が存在する場合はそれを使用、なければ環境変数を使用
 if [ -f "main.parameters.json" ]; then
     echo "main.parameters.json を使用してデプロイします"
@@ -89,7 +89,7 @@ fi
 
 # デプロイが成功したか確認
 if [ $? -eq 0 ]; then
-    echo "✅ Stage 1: Bicepデプロイ成功（アプリケーション権限設定済み）"
+    echo "✅ Stage 1: Bicepデプロイ成功（インフラリソース作成完了）"
 else
     echo "❌ Stage 1: Bicepデプロイ失敗"
     exit 1
@@ -98,9 +98,9 @@ fi
 echo ""
 
 # =============================================================================
-# Stage 2: デプロイプロセス用Key Vault設定
+# Stage 2: CLI権限設定とKey Vault設定
 # =============================================================================
-echo "🔑 Stage 2: デプロイプロセス用Key Vault設定..."
+echo "🔑 Stage 2: CLI権限設定とKey Vault設定..."
 
 echo "2-1. デプロイ結果から情報を取得中..."
 DEPLOYMENT_OUTPUT_FILE="/tmp/deployment_output_$.json"
@@ -118,10 +118,24 @@ echo "GitHub Identity Client ID: $GITHUB_CLIENT_ID"
 echo "Identity Principal ID: $IDENTITY_PRINCIPAL_ID"
 echo ""
 
+echo "2-2. Managed Identity にContributorロールを割り当て中..."
+az role assignment create \
+  --assignee "$IDENTITY_PRINCIPAL_ID" \
+  --role Contributor \
+  --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$RESOURCE_GROUP"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Contributorロール割り当て成功"
+else
+    echo "⚠️  Contributorロール割り当て失敗（既存の可能性）"
+fi
+
+echo ""
+
 # 現在のユーザーのオブジェクトIDを取得
 CURRENT_USER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
 
-echo "2-2. デプロイユーザーにKey Vaultのアクセス権限を付与中..."
+echo "2-3. デプロイユーザーにKey Vaultのアクセス権限を付与中..."
 echo "ユーザーオブジェクトID: $CURRENT_USER_OBJECT_ID"
 az keyvault set-policy \
   --name "$KEY_VAULT_NAME" \
@@ -136,7 +150,7 @@ else
 fi
 
 echo ""
-echo "2-3. Key Vaultにシークレットを設定中..."
+echo "2-4. Key Vaultにシークレットを設定中..."
 az keyvault secret set \
   --vault-name "$KEY_VAULT_NAME" \
   --name "github-token" \
@@ -152,7 +166,7 @@ fi
 
 echo ""
 
-echo "2-4. Web Appを再起動してシークレットを反映中..."
+echo "2-5. Web Appを再起動してシークレットを反映中..."
 az webapp restart \
   --name "${APP_NAME}-webapp" \
   --resource-group "$RESOURCE_GROUP" \
@@ -218,7 +232,7 @@ else
         echo "RESOURCE_GROUP: $RESOURCE_GROUP"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     else
-        echo "3-1. GitHub CLIで production environment にシークレットを設定中..."
+        echo "3-1. GitHub CLIで production environment にシークレット・変数を設定中..."
         
         # GitHub CLI でシークレットを設定
         echo "$GITHUB_CLIENT_ID" | gh secret set AZURE_CLIENT_ID --repo "$REPO_OWNER/$REPO_NAME" --env production
@@ -262,14 +276,14 @@ echo "  🏷️  Principal ID: $IDENTITY_PRINCIPAL_ID"
 echo "  🔑 Key Vault: $KEY_VAULT_NAME"
 echo ""
 echo "🔐 権限設定状況:"
-echo "  ✅ GitHub Identity → Web App (Website Contributor) [Bicep管理]"
-echo "  ✅ GitHub Identity → Resource Group (Reader) [Bicep管理]"
+echo "  ✅ GitHub Identity → Resource Group (Contributor) [deploy.sh CLI管理]"
 echo "  ✅ Web App → Key Vault (Secret Reader) [Bicep管理]"
 echo "  ✅ GitHub Identity → Key Vault (Secret Manager) [Bicep管理]"
 echo "  ✅ デプロイユーザー → Key Vault (Temp Access) [deploy.sh管理]"
+echo "  ✅ サイドカー → GHCR (Private対応) [Key Vault PAT経由]"
 echo ""
 echo "📋 次のステップ:"
-echo "  1. GitHub Actionsワークフローを作成"
+echo "  1. GitHub Actionsワークフローを手動実行"
 echo "  2. Dockerfileとアプリケーションコードの準備"
 echo "  3. 初回デプロイテスト"
 echo ""
