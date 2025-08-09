@@ -10,7 +10,7 @@ st.set_page_config(
 )
 
 # ヘッダー
-st.title("🚀 Streamlitって、こんなにすごいんです！")
+st.title("🚀 Streamlitって、こんなにすごいんです！VER2")
 
 st.write(
     """
