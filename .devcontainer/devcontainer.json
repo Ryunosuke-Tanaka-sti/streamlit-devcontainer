@@ -33,14 +33,7 @@
         "ghcr.io/devcontainers/features/azure-cli:1": {
             "version": "2.72.0"
         },
-        "ghcr.io/devcontainers/features/github-cli": {},
-        "ghcr.io/devcontainers/features/node": {
-            "version": "lts"
-        },
-        // Claude Code サポート（バージョン明示）
-        "ghcr.io/anthropics/devcontainer-features/claude-code:1": {
-            "version": "latest"
-        }
+        "ghcr.io/devcontainers/features/github-cli": {}
     },
     "forwardPorts": [
         8501
@@ -55,7 +48,7 @@
     "mounts": [
         "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
         "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind,consistency=cached",
-        "source=${localEnv:HOME}/.azure,target=/home/node/.azure,type=bind,consistency=cached"
+        "source=${localEnv:HOME}/.azure,target=/home/vscode/.azure,type=bind,consistency=cached"
     ],
     "remoteUser": "vscode",
     "updateRemoteUserUID": true
