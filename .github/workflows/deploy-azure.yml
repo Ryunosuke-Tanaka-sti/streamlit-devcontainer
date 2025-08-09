@@ -7,10 +7,12 @@ on:
         description: 'Deployment environment'
         required: true
         default: 'production'
-        type: choice
-        options:
-          - production
-          - staging
+        type: environment
+      enable_deploy:
+        description: 'Enable deployment to Azure Web App'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   id-token: write
@@ -24,8 +26,6 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -67,6 +67,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
+    if: ${{ github.event.inputs.enable_deploy == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -78,11 +79,11 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ vars.APP_NAME }}-webapp
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image-tag }}
+      - name: Restart Azure Web App
+        run: |
+          az webapp restart \
+            --name ${{ vars.APP_NAME }}-webapp \
+            --resource-group ${{ vars.RESOURCE_GROUP }}
 
       - name: Azure logout
         run: |
