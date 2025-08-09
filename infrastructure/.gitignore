@@ -1,0 +1,15 @@
+# 環境変数ファイル
+.env
+
+# 設定記録ファイル（機密情報含む）
+deployment-config.md
+secrets.md
+config.md
+
+# デプロイメント出力
+deployment-outputs.json
+*.log
+
+# 一時ファイル
+*.tmp
+*.bak
