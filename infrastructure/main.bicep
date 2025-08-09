@@ -115,6 +115,18 @@ resource mainContainer 'Microsoft.Web/sites/sitecontainers@2024-04-01' = {
         name: 'GITHUB_REPO_NAME'
         value: githubRepoName
       }
+      {
+        name: 'X_CLIENT_ID'
+        value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-id)'
+      }
+      {
+        name: 'X_CLIENT_SECRET'
+        value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-secret)'
+      }
+      {
+        name: 'X_REDIRECT_URI'
+        value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-redirect-uri)'
+      }
     ]
     volumeMounts: []
   }
@@ -134,6 +146,9 @@ resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
     enableRbacAuthorization: false
   }
 }
+
+// X OAuth Secrets will be set via Azure CLI in deploy.sh
+// This ensures sensitive data is not stored in Bicep templates or source control
 
 // Key Vault Access Policy for Web App and GitHub Identity
 resource keyVaultAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2024-11-01' = {
