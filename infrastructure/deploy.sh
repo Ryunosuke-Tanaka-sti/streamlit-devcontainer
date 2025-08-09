@@ -16,10 +16,10 @@ else
 fi
 
 # 必須変数のチェック
-if [ -z "$RESOURCE_GROUP" ] || [ -z "$GITHUB_TOKEN" ] || [ -z "$APP_NAME" ] || [ -z "$GITHUB_REPO_OWNER" ] || [ -z "$GITHUB_REPO_NAME" ] || [ -z "$LOCATION" ]; then
+if [ -z "$RESOURCE_GROUP" ] || [ -z "$GITHUB_TOKEN" ] || [ -z "$APP_NAME" ] || [ -z "$GITHUB_REPO_OWNER" ] || [ -z "$GITHUB_REPO_NAME" ] || [ -z "$LOCATION" ] || [ -z "$X_CLIENT_ID" ] || [ -z "$X_CLIENT_SECRET" ] || [ -z "$X_REDIRECT_URI" ]; then
     echo "エラー: 必須の環境変数が設定されていません。"
     echo ".envファイルを確認してください。"
-    echo "必要な変数: RESOURCE_GROUP, GITHUB_TOKEN, APP_NAME, GITHUB_REPO_OWNER, GITHUB_REPO_NAME, LOCATION"
+    echo "必要な変数: RESOURCE_GROUP, GITHUB_TOKEN, APP_NAME, GITHUB_REPO_OWNER, GITHUB_REPO_NAME, LOCATION, X_CLIENT_ID, X_CLIENT_SECRET, X_REDIRECT_URI"
     echo ""
     echo "現在の値:"
     echo "RESOURCE_GROUP: ${RESOURCE_GROUP:-未設定}"
@@ -28,6 +28,9 @@ if [ -z "$RESOURCE_GROUP" ] || [ -z "$GITHUB_TOKEN" ] || [ -z "$APP_NAME" ] || [
     echo "GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-未設定}"
     echo "LOCATION: ${LOCATION:-未設定}"
     echo "GITHUB_TOKEN: ${GITHUB_TOKEN:+設定済み}"
+    echo "X_CLIENT_ID: ${X_CLIENT_ID:+設定済み}"
+    echo "X_CLIENT_SECRET: ${X_CLIENT_SECRET:+設定済み}"
+    echo "X_REDIRECT_URI: ${X_REDIRECT_URI:-未設定}"
     exit 1
 fi
 
@@ -63,6 +66,7 @@ echo "  appName: $APP_NAME"
 echo "  location: $LOCATION"
 echo "  githubRepoOwner: $GITHUB_REPO_OWNER"
 echo "  githubRepoName: $GITHUB_REPO_NAME"
+echo "  X OAuth設定: 設定済み"
 echo ""
 
 # Bicepテンプレートをデプロイ（インフラリソースのみ、権限設定は後でCLI実行）
@@ -151,6 +155,8 @@ fi
 
 echo ""
 echo "2-4. Key Vaultにシークレットを設定中..."
+
+# GitHub Token
 az keyvault secret set \
   --vault-name "$KEY_VAULT_NAME" \
   --name "github-token" \
@@ -164,9 +170,51 @@ else
     exit 1
 fi
 
+# X OAuth Settings
+echo "2-5. X OAuth設定をKey Vaultに設定中..."
+
+az keyvault secret set \
+  --vault-name "$KEY_VAULT_NAME" \
+  --name "x-client-id" \
+  --value "$X_CLIENT_ID" \
+  --output none
+
+if [ $? -eq 0 ]; then
+    echo "✅ X Client ID をKey Vaultに設定完了"
+else
+    echo "❌ X Client IDの設定に失敗しました"
+    exit 1
+fi
+
+az keyvault secret set \
+  --vault-name "$KEY_VAULT_NAME" \
+  --name "x-client-secret" \
+  --value "$X_CLIENT_SECRET" \
+  --output none
+
+if [ $? -eq 0 ]; then
+    echo "✅ X Client Secret をKey Vaultに設定完了"
+else
+    echo "❌ X Client Secretの設定に失敗しました"
+    exit 1
+fi
+
+az keyvault secret set \
+  --vault-name "$KEY_VAULT_NAME" \
+  --name "x-redirect-uri" \
+  --value "$X_REDIRECT_URI" \
+  --output none
+
+if [ $? -eq 0 ]; then
+    echo "✅ X Redirect URI をKey Vaultに設定完了"
+else
+    echo "❌ X Redirect URIの設定に失敗しました"
+    exit 1
+fi
+
 echo ""
 
-echo "2-5. Web Appを再起動してシークレットを反映中..."
+echo "2-6. Web Appを再起動してシークレットを反映中..."
 az webapp restart \
   --name "${APP_NAME}-webapp" \
   --resource-group "$RESOURCE_GROUP" \
