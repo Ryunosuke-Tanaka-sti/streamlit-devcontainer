@@ -20,6 +20,7 @@ class MarkdownProcessor:
                 "extra",  # 拡張構文サポート
                 "codehilite",  # シンタックスハイライト
                 "toc",  # 目次生成
+                "nl2br",  # 改行を<br>に変換（ファイルの改行を保持）
             ],
             extension_configs={"codehilite": {"css_class": "highlight"}},
         )
