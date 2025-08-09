@@ -24,6 +24,8 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -48,7 +50,7 @@ jobs:
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ github.event.inputs.environment }}-{{date 'YYYYMMDD-HHmmss'}}
+            type=raw,value=${{ github.event.inputs.environment }}-${{ github.run_number }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -80,7 +82,7 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ vars.APP_NAME }}-webapp
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.environment }}-${{ github.run_number }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image-tag }}
 
       - name: Azure logout
         run: |
