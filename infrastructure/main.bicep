@@ -17,14 +17,17 @@ param githubRepoName string
 @description('GitHub環境名（main, staging, production等）')
 param githubEnvironment string = 'production'
 
+@description('コンテナのポート番号')
+param containerPort string = '8501'
+
 // User Assigned Managed Identity for GitHub Actions
-resource githubIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+resource githubIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' = {
   name: '${appName}-github-identity'
   location: location
 }
 
 // Federated Identity Credential for GitHub Actions OIDC
-resource federatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
+resource federatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2024-11-30' = {
   parent: githubIdentity
   name: 'github-federated-credential'
   properties: {
@@ -36,18 +39,32 @@ resource federatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/f
   }
 }
 
-// ⚠️ ロール割り当てはCLIで別途実行
-// resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-//   name: guid(resourceGroup().id, githubIdentity.id, 'Contributor')
-//   dependsOn: [
-//     federatedCredential
-//   ]
-//   properties: {
-//     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c') // Contributor
-//     principalId: githubIdentity.properties.principalId
-//     principalType: 'ServicePrincipal'
-//   }
-// }
+// GitHub Identity に Web App の操作権限を付与（Website Contributor）
+resource webAppRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(webApp.id, githubIdentity.id, 'de139f84-1756-47ae-9be6-808fbbe84772')
+  scope: webApp
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'de139f84-1756-47ae-9be6-808fbbe84772') // Website Contributor
+    principalId: githubIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    federatedCredential
+  ]
+}
+
+// GitHub Identity に リソースグループレベルでの読み取り権限を付与（Reader）
+resource readerRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, githubIdentity.id, 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7') // Reader
+    principalId: githubIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    federatedCredential
+  ]
+}
 
 // App Service Plan
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-11-01' = {
@@ -62,7 +79,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2024-11-01' = {
   }
 }
 
-// Web App for Container
+// Web App for Container (サイドカー対応)
 resource webApp 'Microsoft.Web/sites@2024-11-01' = {
   name: '${appName}-webapp'
   location: location
@@ -72,7 +89,7 @@ resource webApp 'Microsoft.Web/sites@2024-11-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     siteConfig: {
-      linuxFxVersion: 'DOCKER|ghcr.io/${toLower(githubRepoOwner)}/${toLower(githubRepoName)}:latest'
+      linuxFxVersion: 'sitecontainers'  // サイドカー対応に変更
       appSettings: [
         {
           name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
@@ -92,7 +109,11 @@ resource webApp 'Microsoft.Web/sites@2024-11-01' = {
         }
         {
           name: 'WEBSITES_PORT'
-          value: '8501'
+          value: containerPort
+        }
+        {
+          name: 'DOCKER_ENABLE_CI'
+          value: 'true'
         }
       ]
       alwaysOn: true
@@ -100,8 +121,35 @@ resource webApp 'Microsoft.Web/sites@2024-11-01' = {
   }
 }
 
+// メインコンテナの設定（サイドカー）
+resource mainContainer 'Microsoft.Web/sites/sitecontainers@2024-04-01' = {
+  parent: webApp
+  name: 'main-container'
+  properties: {
+    image: 'ghcr.io/${toLower(githubRepoOwner)}/${toLower(githubRepoName)}:latest'
+    isMain: true
+    targetPort: containerPort
+    authType: 'Anonymous'
+    environmentVariables: [
+      {
+        name: 'PORT'
+        value: containerPort
+      }
+      {
+        name: 'GITHUB_REPO_OWNER'
+        value: githubRepoOwner
+      }
+      {
+        name: 'GITHUB_REPO_NAME'
+        value: githubRepoName
+      }
+    ]
+    volumeMounts: []
+  }
+}
+
 // Key Vault
-resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
   name: 'kv-${appName}'
   location: location
   properties: {
@@ -116,7 +164,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 }
 
 // Key Vault Access Policy for Web App and GitHub Identity
-resource keyVaultAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2023-07-01' = {
+resource keyVaultAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2024-11-01' = {
   parent: keyVault
   name: 'add'
   properties: {
@@ -139,6 +187,7 @@ resource keyVaultAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2023-07-
   }
 }
 
+
 // 出力
 output webAppName string = webApp.name
 output webAppUrl string = 'https://${webApp.properties.defaultHostName}'
@@ -146,3 +195,5 @@ output keyVaultName string = keyVault.name
 output githubIdentityClientId string = githubIdentity.properties.clientId
 output githubIdentityPrincipalId string = githubIdentity.properties.principalId
 output federatedCredentialSubject string = federatedCredential.properties.subject
+output resourceGroupName string = resourceGroup().name
+output mainContainerName string = mainContainer.name
