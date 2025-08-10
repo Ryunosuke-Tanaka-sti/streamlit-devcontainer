@@ -165,8 +165,7 @@ class XOAuthClient:
             else:
                 error_data = response.json() if response.content else {}
                 error_msg = error_data.get(
-                    "detail", 
-                    error_data.get("title", f"HTTP {response.status_code}")
+                    "detail", error_data.get("title", f"HTTP {response.status_code}")
                 )
                 raise AuthenticationError(f"ユーザー情報取得エラー: {error_msg}")
 

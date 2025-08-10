@@ -17,8 +17,7 @@ try:
     from src.utils.config import Config
     from src.utils.state_store import StateStore
     from src.components.simple_file_viewer import (
-        show_simple_file_viewer,
-        show_main_content_area
+        show_main_content_area,
     )
 except ImportError:
     # 直接実行時のパス対応
@@ -34,8 +33,7 @@ except ImportError:
     from src.utils.config import Config
     from src.utils.state_store import StateStore
     from src.components.simple_file_viewer import (
-        show_simple_file_viewer,
-        show_main_content_area
+        show_main_content_area,
     )
 
 
@@ -253,6 +251,11 @@ def show_login_page():
 def show_dashboard():
     """認証後のダッシュボードを表示"""
 
+    # サイドバーでファイル選択機能を表示
+    from src.components.simple_file_viewer import show_simple_file_viewer
+
+    show_simple_file_viewer()
+
     # ヘッダー
     col1, col2 = st.columns([3, 1])
 
@@ -297,32 +300,15 @@ def show_dashboard():
 
     with tab1:
         st.subheader("📝 Markdown投稿作成")
-        
-        # Task2の機能を統合
-        # サイドバーでファイル選択
-        selected_file = show_simple_file_viewer()
-        
+
         # メインコンテンツエリア（プレビューと投稿フォーム）
         show_main_content_area()
-        
-        # レート制限情報（認証済みなので実際のAPI情報を表示可能）
-        if selected_file:
-            st.markdown("---")
-            show_rate_limit_info()
+
+        # 将来的にはレート制限情報なども表示予定
 
     with tab2:
         st.subheader("📊 投稿統計")
-
-        # モック統計データ
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("今日の投稿", "3", "残り14")
-        with col2:
-            st.metric("今月の投稿", "45", "残り455")
-        with col3:
-            st.metric("予約中", "5")
-
-        st.info("📊 詳細な統計機能は Task 3 で実装予定です")
+        st.info("📊 統計機能は今後の実装予定です")
 
     with tab3:
         st.subheader("⚙️ アプリケーション設定")
@@ -358,7 +344,7 @@ def main():
         page_title="X Scheduler Pro",
         page_icon="🐦",
         layout="wide",
-        initial_sidebar_state="collapsed",
+        initial_sidebar_state="expanded",
     )
 
     # CSS スタイル
@@ -403,39 +389,6 @@ def main():
         if st.button("🔄 アプリケーションをリセット"):
             logout()
             st.rerun()
-
-
-def show_rate_limit_info():
-    """レート制限情報の表示（モック）"""
-    st.subheader("📊 API制限状況（モックデータ）")
-    
-    # モックレート制限データを表示
-    # 実際の実装では認証済みトークンを使用してX APIからレート制限を取得する
-    if st.session_state.access_token:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.metric(
-                "日次制限", 
-                "8/17",
-                delta="残り9回",
-                help="モック: X API Basic プランの日次投稿制限"
-            )
-            st.progress(8/17, text="日次使用率: 47%")
-        
-        with col2:
-            st.metric(
-                "月次制限",
-                "150/500", 
-                delta="残り350回",
-                help="モック: X API Basic プランの月次投稿制限"
-            )
-            st.progress(150/500, text="月次使用率: 30%")
-        
-        st.caption("🔄 モック: 次回リセット: 16時間後 (JST)")
-        st.info("💡 これはモックデータです。実際の制限情報はX APIから取得されます。")
-    else:
-        st.warning("⚠️ 認証情報が無効です")
 
 
 if __name__ == "__main__":

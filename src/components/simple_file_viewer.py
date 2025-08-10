@@ -22,7 +22,7 @@ def show_simple_file_viewer() -> Optional[str]:
     Returns:
         選択されたファイルのパス（選択されていない場合はNone）
     """
-    st.sidebar.header("📁 Markdownファイル参照")
+    st.sidebar.header("ファイル参照")
 
     # ファイル一覧の表示
     selected_file = show_file_list_sidebar()
@@ -42,20 +42,12 @@ def show_file_list_sidebar() -> Optional[str]:
         key="simple_sort",
     )
 
-    search_term = st.sidebar.text_input(
-        "🔍 ファイル検索", placeholder="ファイル名を入力...", key="simple_search"
-    )
-
     # ファイル一覧取得
     try:
         file_list = file_manager.get_file_list(sort_by)
     except Exception as e:
         st.sidebar.error(f"ファイル一覧の取得に失敗: {str(e)}")
         return None
-
-    # 検索フィルタリング
-    if search_term:
-        file_list = [f for f in file_list if search_term.lower() in f["name"].lower()]
 
     if not file_list:
         st.sidebar.info("📝 Markdownファイルが見つかりません")
@@ -154,7 +146,7 @@ def show_post_interface(content: str, filename: str):
 
     # 投稿用のテキストボックス（session_stateでテキストを管理）
     text_key = f"post_text_{filename}"
-    
+
     # フォームクリア用のフラグをチェック
     clear_form_key = f"clear_form_{filename}"
     should_clear = st.session_state.get(clear_form_key, False)
@@ -174,7 +166,7 @@ def show_post_interface(content: str, filename: str):
         height=200,
         help="編集可能です。文字数制限: 280文字",
         placeholder="ここに投稿内容を入力してください...",
-        key=text_key
+        key=text_key,
     )
 
     # 文字数表示
@@ -264,11 +256,9 @@ def show_post_interface(content: str, filename: str):
 def execute_post_action(
     post_type: str, text: str, filename: str, scheduled_date=None, selected_time=None
 ):
-    """投稿アクションの実行（モック接続）"""
-    import time
-    import random
+    """投稿アクションの実行（シンプル版）"""
 
-    # 認証チェック（モック環境でも認証状態は確認）
+    # 認証チェック
     if not st.session_state.get("authenticated", False):
         st.error("❌ 認証が必要です")
         return False
@@ -277,40 +267,43 @@ def execute_post_action(
         st.error("❌ アクセストークンが無効です")
         return False
 
-    with st.spinner("投稿処理中...（モック接続）"):
-        time.sleep(1)
+    # 即時投稿のみサポート
+    if post_type != "即時投稿":
+        st.error("❌ 現在は即時投稿のみサポートしています")
+        return False
 
-        # === モック投稿処理 ===
-        # 実際のX API接続は行わず、モック処理でデモンストレーション
-        # 本番環境では以下のような実装になる:
-        # oauth_client = XOAuthClient()
-        # success = oauth_client.create_tweet(text, st.session_state.access_token)
-        
-        # 投稿内容のバリデーション（実際の実装と同様）
-        if not text or len(text.strip()) == 0:
-            st.error("❌ 投稿内容が空です")
-            return False
-        
-        if len(text) > 280:
-            st.error(f"❌ 文字数制限超過: {len(text)}/280文字")
-            return False
+    # X API クライアントのインポート
+    try:
+        from api.x_api_client import XAPIClient
+    except ImportError:
+        # 直接実行時の対応
+        import sys
+        import os
 
-        # モック成功率: 50%
-        success = random.random() < 0.5
+        sys.path.append(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        )
+        from src.api.x_api_client import XAPIClient
 
-        if success:
-            # 投稿成功時はフォームクリアのみ（軽量化のため視覚効果は削除）
+    access_token = st.session_state.access_token
+
+    try:
+        with st.spinner("X APIに投稿中..."):
+            client = XAPIClient(access_token)
+            result = client.post_tweet(text)  # reply_settingsを指定しない
+            client.close()
+
+        if result:
+            tweet_id = result.get("data", {}).get("id")
+            st.success("✅ 投稿が完了しました！")
+            if tweet_id:
+                st.info(f"🔗 ツイートID: {tweet_id}")
             return True
         else:
-            # モックエラーメッセージ
-            error_messages = [
-                "モック: ネットワークエラーが発生しました",
-                "モック: API制限に達しました",
-                "モック: 認証エラーが発生しました",
-            ]
-            st.error(f"❌ 投稿に失敗しました: {random.choice(error_messages)}")
-
-            if st.button("🔄 再試行"):
-                st.rerun()
-
+            st.error("❌ 投稿に失敗しました")
+            st.info("💡 再試行ボタンで再度実行できます")
             return False
+
+    except Exception as e:
+        st.error(f"❌ エラーが発生しました: {str(e)}")
+        return False
