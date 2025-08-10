@@ -12,7 +12,7 @@ from urllib.parse import urlencode, parse_qs, urlparse
 from datetime import datetime, timedelta
 
 from .pkce_utils import PKCEUtils
-from ..utils.config import Config
+from utils.config import Config
 
 
 class AuthenticationError(Exception):

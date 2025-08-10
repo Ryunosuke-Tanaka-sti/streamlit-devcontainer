@@ -37,7 +37,7 @@ def get_firebase_client():
         sys.path.append(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         )
-        from src.db.firebase_client import get_firebase_client
+        from db.firebase_client import get_firebase_client
     return get_firebase_client()
 
 
@@ -52,7 +52,7 @@ def get_config():
         sys.path.append(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         )
-        from src.utils.config import Config
+        from utils.config import Config
     return Config
 
 

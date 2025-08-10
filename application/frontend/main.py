@@ -9,30 +9,30 @@ from datetime import datetime, timedelta
 
 # 内部モジュール
 try:
-    from src.auth.oauth_client import (
+    from auth.oauth_client import (
         XOAuthClient,
         AuthenticationError,
         TokenExpiredError,
     )
-    from src.utils.config import Config
-    from src.utils.state_store import StateStore
-    from src.components.simple_file_viewer import show_main_content_area
-    from src.components.post_history import show_post_history
+    from utils.config import Config
+    from utils.state_store import StateStore
+    from components.simple_file_viewer import show_main_content_area
+    from components.post_history import show_post_history
 except ImportError:
     # 直接実行時のパス対応
     import sys
     import os
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from src.auth.oauth_client import (
+    from auth.oauth_client import (
         XOAuthClient,
         AuthenticationError,
         TokenExpiredError,
     )
-    from src.utils.config import Config
-    from src.utils.state_store import StateStore
-    from src.components.simple_file_viewer import show_main_content_area
-    from src.components.post_history import show_post_history
+    from utils.config import Config
+    from utils.state_store import StateStore
+    from components.simple_file_viewer import show_main_content_area
+    from components.post_history import show_post_history
 
 
 def initialize_session_state():
@@ -150,7 +150,7 @@ def handle_oauth_callback():
 
             # Firestoreにアクセストークンを保存
             try:
-                from src.db.firebase_client import get_firebase_client
+                from db.firebase_client import get_firebase_client
 
                 firebase_client = get_firebase_client()
                 firebase_client.save_user_token(token_data["access_token"])
@@ -185,7 +185,7 @@ def handle_oauth_callback():
 
 def show_login_page():
     """ログインページを表示"""
-    st.title("🐦 X Scheduler Pro")
+    st.title("🐦 X Scheduler Pro V2")
     st.markdown("---")
 
     st.header("🔐 Xアカウントでログインしてください")
@@ -260,7 +260,7 @@ def show_dashboard():
     """認証後のダッシュボードを表示"""
 
     # サイドバーでファイル選択機能を表示
-    from src.components.simple_file_viewer import show_simple_file_viewer
+    from components.simple_file_viewer import show_simple_file_viewer
 
     show_simple_file_viewer()
 
