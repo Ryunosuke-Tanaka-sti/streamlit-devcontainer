@@ -256,9 +256,7 @@ def show_post_interface(content: str, filename: str):
 def execute_post_action(
     post_type: str, text: str, filename: str, scheduled_date=None, selected_time=None
 ):
-    """投稿アクションの実行（シンプル版）"""
-
-    # 認証チェック
+    """投稿アクションの実行（Firestore統合版）"""
     if not st.session_state.get("authenticated", False):
         st.error("❌ 認証が必要です")
         return False
@@ -267,43 +265,62 @@ def execute_post_action(
         st.error("❌ アクセストークンが無効です")
         return False
 
-    # 即時投稿のみサポート
-    if post_type != "即時投稿":
-        st.error("❌ 現在は即時投稿のみサポートしています")
-        return False
+    from db.firebase_client import get_firebase_client
+    from api.x_api_client import XAPIClient
 
-    # X API クライアントのインポート
-    try:
-        from api.x_api_client import XAPIClient
-    except ImportError:
-        # 直接実行時の対応
-        import sys
-        import os
-
-        sys.path.append(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        )
-        from src.api.x_api_client import XAPIClient
-
+    firebase_client = get_firebase_client()
     access_token = st.session_state.access_token
 
-    try:
-        with st.spinner("X APIに投稿中..."):
-            client = XAPIClient(access_token)
-            result = client.post_tweet(text)  # reply_settingsを指定しない
-            client.close()
+    # Step 1: 投稿データをFirestoreに作成
+    post_date = None
+    time_slot = None
 
-        if result:
-            tweet_id = result.get("data", {}).get("id")
-            st.success("✅ 投稿が完了しました！")
-            if tweet_id:
-                st.info(f"🔗 ツイートID: {tweet_id}")
-            return True
-        else:
-            st.error("❌ 投稿に失敗しました")
-            st.info("💡 再試行ボタンで再度実行できます")
-            return False
+    if post_type == "予約投稿":
+        post_date = scheduled_date.strftime("%Y/%m/%d") if scheduled_date else None
+        # 時間から時間スロットを取得
+        time_mapping = {"09:00": 0, "12:00": 1, "15:00": 2, "21:00": 3}
+        time_slot = time_mapping.get(selected_time)
 
-    except Exception as e:
-        st.error(f"❌ エラーが発生しました: {str(e)}")
+    post_id = firebase_client.create_post(text, post_date, time_slot)
+    if not post_id:
+        st.error("❌ Firestoreへの投稿データ保存に失敗しました")
         return False
+
+    # 即時投稿の場合のみX APIに投稿
+    if post_type == "即時投稿":
+        try:
+            with st.spinner("X APIに投稿中..."):
+                client = XAPIClient(access_token)
+                result = client.post_tweet(text)
+                client.close()
+
+            if result:
+                tweet_id = result.get("data", {}).get("id")
+                # Step 2: 投稿成功時にFirestoreを更新
+                firebase_client.update_post_status(post_id, True, tweet_id)
+
+                st.success("✅ 投稿が完了しました！")
+                if tweet_id:
+                    st.info(f"🔗 ツイートID: {tweet_id}")
+                    st.info(f"📝 投稿ID: {post_id}")
+                return True
+            else:
+                # Step 2: 投稿失敗時にFirestoreを更新
+                firebase_client.update_post_status(
+                    post_id, False, error_message="X API投稿に失敗しました"
+                )
+                st.error("❌ 投稿に失敗しました")
+                return False
+
+        except Exception as e:
+            # Step 2: エラー時にFirestoreを更新
+            firebase_client.update_post_status(post_id, False, error_message=str(e))
+            st.error(f"❌ エラーが発生しました: {str(e)}")
+            return False
+    else:
+        # 予約投稿の場合
+        st.success("✅ 予約投稿を作成しました！")
+        if post_date and selected_time:
+            st.info(f"📅 投稿予定日時: {post_date} {selected_time}")
+        st.info(f"📝 投稿ID: {post_id}")
+        return True

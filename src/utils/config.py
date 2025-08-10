@@ -37,6 +37,22 @@ class Config:
     # OAuth スコープ
     OAUTH_SCOPES = ["tweet.write", "users.read", "tweet.read"]
 
+    # Firebase/Firestore 設定
+    FIREBASE_PROJECT_ID: Optional[str] = None
+    FIRESTORE_REGION: str = "asia-northeast1"
+    GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
+    FIREBASE_SERVICE_ACCOUNT_BASE64: Optional[str] = None
+    ENCRYPTION_KEY: Optional[str] = None
+    FIRESTORE_EMULATOR_HOST: Optional[str] = None
+
+    # 投稿時間スロット
+    TIME_SLOTS = [
+        {"slot": 0, "time": "09:00", "label": "朝9時"},
+        {"slot": 1, "time": "12:00", "label": "昼12時"},
+        {"slot": 2, "time": "15:00", "label": "午後3時"},
+        {"slot": 3, "time": "21:00", "label": "夜9時"},
+    ]
+
     @classmethod
     def load_from_env(cls):
         """環境変数から設定を読み込み"""
@@ -45,6 +61,16 @@ class Config:
         cls.X_REDIRECT_URI = os.getenv(
             "X_REDIRECT_URI", "http://localhost:8501/callback"
         )
+
+        # Firebase設定
+        cls.FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
+        cls.FIRESTORE_REGION = os.getenv("FIRESTORE_REGION", "asia-northeast1")
+        cls.GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        cls.FIREBASE_SERVICE_ACCOUNT_BASE64 = os.getenv(
+            "FIREBASE_SERVICE_ACCOUNT_BASE64"
+        )
+        cls.ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+        cls.FIRESTORE_EMULATOR_HOST = os.getenv("FIRESTORE_EMULATOR_HOST")
 
     @classmethod
     def load_from_secrets(cls):
@@ -55,6 +81,18 @@ class Config:
             cls.X_REDIRECT_URI = st.secrets.get(
                 "X_REDIRECT_URI", "http://localhost:8501/callback"
             )
+
+            # Firebase設定
+            cls.FIREBASE_PROJECT_ID = st.secrets.get("FIREBASE_PROJECT_ID")
+            cls.FIRESTORE_REGION = st.secrets.get("FIRESTORE_REGION", "asia-northeast1")
+            cls.GOOGLE_APPLICATION_CREDENTIALS = st.secrets.get(
+                "GOOGLE_APPLICATION_CREDENTIALS"
+            )
+            cls.FIREBASE_SERVICE_ACCOUNT_BASE64 = st.secrets.get(
+                "FIREBASE_SERVICE_ACCOUNT_BASE64"
+            )
+            cls.ENCRYPTION_KEY = st.secrets.get("ENCRYPTION_KEY")
+            cls.FIRESTORE_EMULATOR_HOST = st.secrets.get("FIRESTORE_EMULATOR_HOST")
         except Exception:
             pass
 
@@ -83,6 +121,22 @@ class Config:
         return "localhost" in (cls.X_REDIRECT_URI or "") or "ngrok" in (
             cls.X_REDIRECT_URI or ""
         )
+
+    @classmethod
+    def get_time_slot_label(cls, slot: int) -> str:
+        """時間スロットのラベルを取得"""
+        for ts in cls.TIME_SLOTS:
+            if ts["slot"] == slot:
+                return ts["label"]
+        return "不明"
+
+    @classmethod
+    def get_time_slot_time(cls, slot: int) -> str:
+        """時間スロットの時刻を取得"""
+        for ts in cls.TIME_SLOTS:
+            if ts["slot"] == slot:
+                return ts["time"]
+        return "00:00"
 
 
 # 初期化

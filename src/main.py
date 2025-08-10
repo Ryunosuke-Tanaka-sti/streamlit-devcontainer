@@ -16,9 +16,8 @@ try:
     )
     from src.utils.config import Config
     from src.utils.state_store import StateStore
-    from src.components.simple_file_viewer import (
-        show_main_content_area,
-    )
+    from src.components.simple_file_viewer import show_main_content_area
+    from src.components.post_history import show_post_history
 except ImportError:
     # 直接実行時のパス対応
     import sys
@@ -32,9 +31,8 @@ except ImportError:
     )
     from src.utils.config import Config
     from src.utils.state_store import StateStore
-    from src.components.simple_file_viewer import (
-        show_main_content_area,
-    )
+    from src.components.simple_file_viewer import show_main_content_area
+    from src.components.post_history import show_post_history
 
 
 def initialize_session_state():
@@ -150,6 +148,16 @@ def handle_oauth_callback():
             st.session_state.token_data = token_data
             st.session_state.auth_start_time = datetime.now().isoformat()
 
+            # Firestoreにアクセストークンを保存
+            try:
+                from src.db.firebase_client import get_firebase_client
+
+                firebase_client = get_firebase_client()
+                firebase_client.save_user_token(token_data["access_token"])
+            except Exception as e:
+                # Firebase接続エラーでもログインは継続
+                print(f"Firebase token save error: {e}")
+
             # OAuth一時状態をクリア
             st.session_state.oauth_state = None
             st.session_state.code_verifier = None
@@ -182,7 +190,7 @@ def show_login_page():
 
     st.header("🔐 Xアカウントでログインしてください")
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    _, col2, _ = st.columns([1, 2, 1])
 
     with col2:
         if st.button("📱 Xでログイン", type="primary", use_container_width=True):
@@ -190,7 +198,7 @@ def show_login_page():
                 oauth_client = XOAuthClient()
 
                 # 認証URLを生成
-                auth_url, code_verifier, code_challenge, state = (
+                auth_url, code_verifier, _, state = (
                     oauth_client.generate_authorization_url()
                 )
 
@@ -307,8 +315,8 @@ def show_dashboard():
         # 将来的にはレート制限情報なども表示予定
 
     with tab2:
-        st.subheader("📊 投稿統計")
-        st.info("📊 統計機能は今後の実装予定です")
+        st.subheader("📊 投稿履歴")
+        show_post_history()
 
     with tab3:
         st.subheader("⚙️ アプリケーション設定")
