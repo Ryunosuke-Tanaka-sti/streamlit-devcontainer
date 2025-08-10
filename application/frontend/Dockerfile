@@ -34,9 +34,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # アプリケーションコードをコピー
 COPY . .
 
-# Streamlit設定ファイルを作成
-RUN mkdir -p .streamlit
-COPY .streamlit/config.prod.toml .streamlit/config.toml
+# Streamlit設定ファイルを作成（既にCOPY . .でコピー済み）
+RUN cp .streamlit/config.prod.toml .streamlit/config.toml
 
 # Python パスにsrcディレクトリを追加（開発・本番両環境対応）
 ENV PYTHONPATH="/app:${PYTHONPATH}"
