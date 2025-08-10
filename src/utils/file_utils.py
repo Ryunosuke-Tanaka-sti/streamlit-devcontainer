@@ -81,7 +81,6 @@ class FileManager:
         except Exception as e:
             return False, f"ファイル読み込みエラー: {str(e)}"
 
-
     def get_file_stats(self, file_path: str) -> Dict[str, any]:
         """
         ファイルの統計情報を取得

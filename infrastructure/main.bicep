@@ -88,6 +88,46 @@ resource webApp 'Microsoft.Web/sites@2024-11-01' = {
           name: 'DOCKER_ENABLE_CI'
           value: 'true'
         }
+        {
+          name: 'PORT'
+          value: containerPort
+        }
+        {
+          name: 'GITHUB_REPO_OWNER'
+          value: githubRepoOwner
+        }
+        {
+          name: 'GITHUB_REPO_NAME'
+          value: githubRepoName
+        }
+        {
+          name: 'X_CLIENT_ID'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-id)'
+        }
+        {
+          name: 'X_CLIENT_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-secret)'
+        }
+        {
+          name: 'X_REDIRECT_URI'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-redirect-uri)'
+        }
+        {
+          name: 'FIREBASE_PROJECT_ID'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=firebase-project-id)'
+        }
+        {
+          name: 'FIREBASE_SERVICE_ACCOUNT_BASE64'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=firebase-service-account-base64)'
+        }
+        {
+          name: 'ENCRYPTION_KEY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=encryption-key)'
+        }
+        {
+          name: 'FIRESTORE_REGION'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=firestore-region)'
+        }
       ]
       alwaysOn: true
     }
@@ -102,32 +142,6 @@ resource mainContainer 'Microsoft.Web/sites/sitecontainers@2024-04-01' = {
     image: 'ghcr.io/${toLower(githubRepoOwner)}/${toLower(githubRepoName)}:latest'
     isMain: true
     targetPort: containerPort
-    environmentVariables: [
-      {
-        name: 'PORT'
-        value: containerPort
-      }
-      {
-        name: 'GITHUB_REPO_OWNER'
-        value: githubRepoOwner
-      }
-      {
-        name: 'GITHUB_REPO_NAME'
-        value: githubRepoName
-      }
-      {
-        name: 'X_CLIENT_ID'
-        value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-id)'
-      }
-      {
-        name: 'X_CLIENT_SECRET'
-        value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-secret)'
-      }
-      {
-        name: 'X_REDIRECT_URI'
-        value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-redirect-uri)'
-      }
-    ]
     volumeMounts: []
   }
 }
