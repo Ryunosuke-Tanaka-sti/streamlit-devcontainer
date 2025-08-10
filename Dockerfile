@@ -31,12 +31,18 @@ COPY requirements.txt .
 # Pythonパッケージのインストール
 RUN pip install --no-cache-dir -r requirements.txt
 
-# アプリケーションコードをコピー
-COPY ./src .
+# アプリケーションコードをコピー（src全体をsrcディレクトリとしてコピー）
+COPY ./src ./src
+
+# Markdownファイルもコピー
+COPY ./markdown ./markdown
 
 # Streamlit設定ファイルを作成
 RUN mkdir -p .streamlit
 COPY .streamlit/config.prod.toml .streamlit/config.toml
+
+# Python パスにsrcディレクトリを追加（開発・本番両環境対応）
+ENV PYTHONPATH="/app:${PYTHONPATH}"
 
 # ファイルの所有権を変更（セキュリティ対策）
 RUN chown -R appuser:appuser /app
@@ -47,5 +53,5 @@ USER appuser
 # ポート公開
 EXPOSE 8501
 
-# Streamlitアプリの起動
-CMD ["streamlit", "run", "main.py"]
+# Streamlitアプリの起動（srcディレクトリのmain.pyを実行）
+CMD ["streamlit", "run", "src/main.py"]
