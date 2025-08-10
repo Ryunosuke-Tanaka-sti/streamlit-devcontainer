@@ -34,6 +34,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # アプリケーションコードをコピー
 COPY . .
 
+RUN pwd
+
 # Streamlit設定ファイルを作成（既にCOPY . .でコピー済み）
 RUN cp .streamlit/config.prod.toml .streamlit/config.toml
 
