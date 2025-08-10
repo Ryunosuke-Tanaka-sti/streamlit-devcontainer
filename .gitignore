@@ -62,8 +62,6 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Streamlit
-.streamlit/
 
 # Project specific
 temp/
