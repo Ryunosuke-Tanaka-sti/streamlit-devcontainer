@@ -363,6 +363,7 @@ if [ -z "$REPO_OWNER" ] || [ -z "$REPO_NAME" ]; then
     echo "AZURE_CLIENT_ID: $GITHUB_CLIENT_ID"
     echo "AZURE_TENANT_ID: $(az account show --query tenantId -o tsv)"
     echo "AZURE_SUBSCRIPTION_ID: $(az account show --query id -o tsv)"
+    echo "GITHUB_TOKEN: $GITHUB_TOKEN"
     echo ""
     echo "【環境変数 (Settings > Environments > production)】"
     echo "APP_NAME: $APP_NAME"
@@ -385,6 +386,7 @@ else
         echo "AZURE_CLIENT_ID: $GITHUB_CLIENT_ID"
         echo "AZURE_TENANT_ID: $AZURE_TENANT_ID"
         echo "AZURE_SUBSCRIPTION_ID: $AZURE_SUBSCRIPTION_ID"
+        echo "GHCR_TOKEN: $GITHUB_TOKEN"
         echo ""
         echo "【環境変数 (Settings > Environments > production)】"
         echo "APP_NAME: $APP_NAME"
@@ -398,11 +400,26 @@ else
         echo "$GITHUB_CLIENT_ID" | gh secret set AZURE_CLIENT_ID --repo "$REPO_OWNER/$REPO_NAME" --env production
         echo "$AZURE_TENANT_ID" | gh secret set AZURE_TENANT_ID --repo "$REPO_OWNER/$REPO_NAME" --env production  
         echo "$AZURE_SUBSCRIPTION_ID" | gh secret set AZURE_SUBSCRIPTION_ID --repo "$REPO_OWNER/$REPO_NAME" --env production
+        echo "$GITHUB_TOKEN" | gh secret set GHCR_TOKEN --repo "$REPO_OWNER/$REPO_NAME" --env production
         
         # 環境変数も設定
         gh variable set APP_NAME --repo "$REPO_OWNER/$REPO_NAME" --env production --body "$APP_NAME"
         gh variable set RESOURCE_GROUP --repo "$REPO_OWNER/$REPO_NAME" --env production --body "$RESOURCE_GROUP"
         gh variable set KEY_VAULT_NAME --repo "$REPO_OWNER/$REPO_NAME" --env production --body "$KEY_VAULT_NAME"
+        
+        # 外部コンテンツ設定（.envから読み取り、デフォルトは空）
+        EXTERNAL_REPO_OWNER_VALUE="${EXTERNAL_REPO_OWNER:-}"
+        EXTERNAL_REPO_NAME_VALUE="${EXTERNAL_REPO_NAME:-}"
+        
+        if [ -n "$EXTERNAL_REPO_OWNER_VALUE" ]; then
+          gh variable set EXTERNAL_REPO_OWNER --repo "$REPO_OWNER/$REPO_NAME" --env production --body "$EXTERNAL_REPO_OWNER_VALUE"
+          echo "✅ EXTERNAL_REPO_OWNER を設定: $EXTERNAL_REPO_OWNER_VALUE"
+        fi
+        
+        if [ -n "$EXTERNAL_REPO_NAME_VALUE" ]; then
+          gh variable set EXTERNAL_REPO_NAME --repo "$REPO_OWNER/$REPO_NAME" --env production --body "$EXTERNAL_REPO_NAME_VALUE"
+          echo "✅ EXTERNAL_REPO_NAME を設定: $EXTERNAL_REPO_NAME_VALUE"
+        fi
         
         if [ $? -eq 0 ]; then
             echo "✅ GitHub Secrets と環境変数を production 環境に設定完了"
@@ -415,6 +432,7 @@ else
             echo "AZURE_CLIENT_ID: $GITHUB_CLIENT_ID"
             echo "AZURE_TENANT_ID: $AZURE_TENANT_ID"
             echo "AZURE_SUBSCRIPTION_ID: $AZURE_SUBSCRIPTION_ID"
+            echo "GHCR_TOKEN: $GITHUB_TOKEN"
             echo ""
             echo "【環境変数】"
             echo "APP_NAME: $APP_NAME"
