@@ -1,0 +1,15 @@
+# Uncomment to enable Azure Monitor OpenTelemetry
+# Ref: aka.ms/functions-azure-monitor-python 
+# azure-monitor-opentelemetry 
+
+azure-functions
+
+# Firebase/Firestore
+firebase-admin==6.5.0
+google-cloud-firestore==2.16.0
+
+# Encryption
+cryptography>=41.0.0
+
+# HTTP requests
+requests==2.31.0
