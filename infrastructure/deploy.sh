@@ -148,9 +148,16 @@ az deployment group show \
 GITHUB_CLIENT_ID=$(jq -r '.githubIdentityClientId.value' < "$DEPLOYMENT_OUTPUT_FILE")
 IDENTITY_PRINCIPAL_ID=$(jq -r '.githubIdentityPrincipalId.value' < "$DEPLOYMENT_OUTPUT_FILE")
 WEB_APP_URL=$(jq -r '.webAppUrl.value' < "$DEPLOYMENT_OUTPUT_FILE")
+FUNCTION_APP_NAME=$(jq -r '.functionAppName.value' < "$DEPLOYMENT_OUTPUT_FILE")
+FUNCTION_APP_URL=$(jq -r '.functionAppUrl.value' < "$DEPLOYMENT_OUTPUT_FILE")
+STORAGE_ACCOUNT_NAME=$(jq -r '.storageAccountName.value' < "$DEPLOYMENT_OUTPUT_FILE")
+APPLICATION_INSIGHTS_NAME=$(jq -r '.applicationInsightsName.value' < "$DEPLOYMENT_OUTPUT_FILE")
 
 echo "GitHub Identity Client ID: $GITHUB_CLIENT_ID"
 echo "Identity Principal ID: $IDENTITY_PRINCIPAL_ID"
+echo "Function App Name: $FUNCTION_APP_NAME"
+echo "Storage Account Name: $STORAGE_ACCOUNT_NAME"
+echo "Application Insights Name: $APPLICATION_INSIGHTS_NAME"
 echo ""
 
 echo "2-2. Managed Identity にContributorロールを割り当て中..."
@@ -311,13 +318,20 @@ fi
 
 echo ""
 
-echo "2-7. Web Appを再起動してシークレットを反映中..."
+echo "2-7. Web AppとFunction Appを再起動してシークレットを反映中..."
 az webapp restart \
   --name "${APP_NAME}-webapp" \
   --resource-group "$RESOURCE_GROUP" \
   --output none
 
 echo "✅ Web App再起動完了"
+
+az functionapp restart \
+  --name "${APP_NAME}-functions" \
+  --resource-group "$RESOURCE_GROUP" \
+  --output none
+
+echo "✅ Function App再起動完了"
 echo ""
 
 # =============================================================================
@@ -375,6 +389,7 @@ else
         echo "【環境変数 (Settings > Environments > production)】"
         echo "APP_NAME: $APP_NAME"
         echo "RESOURCE_GROUP: $RESOURCE_GROUP"
+        echo "KEY_VAULT_NAME: $KEY_VAULT_NAME"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     else
         echo "3-1. GitHub CLIで production environment にシークレット・変数を設定中..."
@@ -387,6 +402,7 @@ else
         # 環境変数も設定
         gh variable set APP_NAME --repo "$REPO_OWNER/$REPO_NAME" --env production --body "$APP_NAME"
         gh variable set RESOURCE_GROUP --repo "$REPO_OWNER/$REPO_NAME" --env production --body "$RESOURCE_GROUP"
+        gh variable set KEY_VAULT_NAME --repo "$REPO_OWNER/$REPO_NAME" --env production --body "$KEY_VAULT_NAME"
         
         if [ $? -eq 0 ]; then
             echo "✅ GitHub Secrets と環境変数を production 環境に設定完了"
@@ -403,6 +419,7 @@ else
             echo "【環境変数】"
             echo "APP_NAME: $APP_NAME"
             echo "RESOURCE_GROUP: $RESOURCE_GROUP"
+            echo "KEY_VAULT_NAME: $KEY_VAULT_NAME"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         fi
     fi
@@ -416,6 +433,9 @@ echo "🎉 2段階デプロイ完了！"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📊 デプロイ結果サマリー:"
 echo "  🌐 Web App URL: $WEB_APP_URL"
+echo "  ⚡ Function App URL: $FUNCTION_APP_URL"
+echo "  💾 Storage Account: $STORAGE_ACCOUNT_NAME"
+echo "  📊 Application Insights: $APPLICATION_INSIGHTS_NAME"
 echo "  🆔 Client ID: $GITHUB_CLIENT_ID"
 echo "  🏷️  Principal ID: $IDENTITY_PRINCIPAL_ID"
 echo "  🔑 Key Vault: $KEY_VAULT_NAME"
@@ -430,6 +450,7 @@ echo ""
 echo "🔐 権限設定状況:"
 echo "  ✅ GitHub Identity → Resource Group (Contributor) [deploy.sh CLI管理]"
 echo "  ✅ Web App → Key Vault (Secret Reader) [Bicep管理]"
+echo "  ✅ Function App → Key Vault (Secret Reader) [Bicep管理]"
 echo "  ✅ GitHub Identity → Key Vault (Secret Manager) [Bicep管理]"
 echo "  ✅ デプロイユーザー → Key Vault (Temp Access) [deploy.sh管理]"
 echo "  ✅ サイドカー → GHCR (Private対応) [Key Vault PAT経由]"
@@ -446,17 +467,21 @@ echo "  ✅ Markdown投稿作成"
 if [ "$FIREBASE_ENABLED" = true ]; then
     echo "  ✅ 投稿履歴管理 (Firestore)"
     echo "  ✅ 予約投稿機能"
+    echo "  ✅ 自動投稿機能 (Azure Functions Timer Trigger)"
     echo "  ✅ アクセストークン暗号化保存"
 else
     echo "  ❌ 投稿履歴管理 (Firebase設定なし)"
     echo "  ❌ 予約投稿機能 (Firebase設定なし)"
+    echo "  ❌ 自動投稿機能 (Firebase設定なし)"
 fi
 
 echo ""
 echo "📋 次のステップ:"
-echo "  1. GitHub Actionsワークフローを手動実行"
-echo "  2. Dockerfileとアプリケーションコードの準備"
-echo "  3. 初回デプロイテスト"
+echo "  1. Web App: GitHub Actionsワークフロー 'Deploy to Azure' を手動実行"
+echo "  2. Functions: GitHub Actionsワークフロー 'Deploy Azure Functions' を手動実行"
+echo "  3. Timer Trigger動作確認: Azure Portal > Functions App > Timer関数"
+echo "  4. Application Insights でログ監視開始"
+echo "  5. 初回投稿テスト（Web App経由でFirestoreに予約投稿）"
 
 if [ "$FIREBASE_ENABLED" = false ]; then
     echo ""

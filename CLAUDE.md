@@ -61,6 +61,10 @@ cd infrastructure
 sudo apt-get update
 sudo apt-get install azure-functions-core-tools-4
 
+# Install and start Azurite for local Azure Storage emulation
+npm install -g azurite
+azurite --silent --location c:/azurite --debug c:/azurite/debug.log
+
 # Initialize Functions project
 cd application/functions
 func init --python
@@ -68,7 +72,7 @@ func init --python
 # Create new timer trigger function
 func new --name auto_poster --template "Timer trigger"
 
-# Run Functions locally
+# Run Functions locally (requires Azurite to be running)
 func start
 
 # Deploy to Azure

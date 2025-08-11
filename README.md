@@ -91,6 +91,9 @@ FIREBASE_PROJECT_ID=your_project_id
 # 依存関係インストール
 pip install -r requirements.txt
 
+# Azure Functions をローカルでエミュレートする場合はAzuriteを起動
+azurite --silent --location c:/azurite --debug c:/azurite/debug.log
+
 # アプリケーション実行
 streamlit run src/main.py
 ```
