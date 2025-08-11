@@ -100,6 +100,16 @@ resource webApp 'Microsoft.Web/sites@2024-11-01' = {
           name: 'GITHUB_REPO_NAME'
           value: githubRepoName
         }
+        // Application Insights
+        {
+          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
+          value: applicationInsights.properties.InstrumentationKey
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: applicationInsights.properties.ConnectionString
+        }
+        // X API設定
         {
           name: 'X_CLIENT_ID'
           value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-id)'
@@ -112,6 +122,7 @@ resource webApp 'Microsoft.Web/sites@2024-11-01' = {
           name: 'X_REDIRECT_URI'
           value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-redirect-uri)'
         }
+        // Firebase/Firestore設定
         {
           name: 'FIREBASE_PROJECT_ID'
           value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=firebase-project-id)'
@@ -147,7 +158,7 @@ resource mainContainer 'Microsoft.Web/sites/sitecontainers@2024-04-01' = {
 }
 
 // Key Vault
-resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: 'kv-${appName}'
   location: location
   properties: {
@@ -164,8 +175,130 @@ resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
 // X OAuth Secrets will be set via Azure CLI in deploy.sh
 // This ensures sensitive data is not stored in Bicep templates or source control
 
-// Key Vault Access Policy for Web App and GitHub Identity
-resource keyVaultAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2024-11-01' = {
+// Storage Account for Azure Functions
+resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
+  name: toLower('${replace(appName, '-', '')}funcstor')
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    supportsHttpsTrafficOnly: true
+    minimumTlsVersion: 'TLS1_2'
+    accessTier: 'Hot'
+    encryption: {
+      services: {
+        file: {
+          enabled: true
+        }
+        blob: {
+          enabled: true
+        }
+      }
+      keySource: 'Microsoft.Storage'
+    }
+  }
+}
+
+// Function App Service Plan (Consumption Plan)
+resource functionAppServicePlan 'Microsoft.Web/serverfarms@2024-11-01' = {
+  name: '${appName}-function-plan'
+  location: location
+  sku: {
+    name: 'Y1'
+    tier: 'Dynamic'
+  }
+  properties: {
+    reserved: false  // Windows
+  }
+}
+
+// Function App
+resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
+  name: '${appName}-functions'
+  location: location
+  kind: 'functionapp'
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: functionAppServicePlan.id
+    siteConfig: {
+      pythonVersion: '3.11'
+      appSettings: [
+        // Azure Functions 必須設定
+        {
+          name: 'AzureWebJobsStorage'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+        }
+        {
+          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+        }
+        {
+          name: 'WEBSITE_CONTENTSHARE'
+          value: toLower('${appName}-functions')
+        }
+        {
+          name: 'FUNCTIONS_EXTENSION_VERSION'
+          value: '~4'
+        }
+        {
+          name: 'FUNCTIONS_WORKER_RUNTIME'
+          value: 'python'
+        }
+        // Application Insights
+        {
+          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
+          value: applicationInsights.properties.InstrumentationKey
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: applicationInsights.properties.ConnectionString
+        }
+        // アプリケーション設定
+        {
+          name: 'WEBSITE_TIME_ZONE'
+          value: 'Asia/Tokyo'
+        }
+        // Firebase/Firestore設定 (自動投稿に必要)
+        {
+          name: 'FIREBASE_PROJECT_ID'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=firebase-project-id)'
+        }
+        {
+          name: 'FIREBASE_SERVICE_ACCOUNT_BASE64'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=firebase-service-account-base64)'
+        }
+        {
+          name: 'ENCRYPTION_KEY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=encryption-key)'
+        }
+      ]
+      use32BitWorkerProcess: false
+      ftpsState: 'Disabled'
+      cors: {
+        allowedOrigins: ['https://portal.azure.com']
+      }
+    }
+    httpsOnly: true
+  }
+}
+
+// Application Insights
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: '${appName}-insights'
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    Request_Source: 'rest'
+  }
+}
+
+// Key Vault Access Policy for Web App, Functions App and GitHub Identity
+resource keyVaultAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2023-07-01' = {
   parent: keyVault
   name: 'add'
   properties: {
@@ -173,6 +306,13 @@ resource keyVaultAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2024-11-
       {
         tenantId: subscription().tenantId
         objectId: webApp.identity.principalId
+        permissions: {
+          secrets: ['get']
+        }
+      }
+      {
+        tenantId: subscription().tenantId
+        objectId: functionApp.identity.principalId
         permissions: {
           secrets: ['get']
         }
@@ -198,3 +338,7 @@ output githubIdentityPrincipalId string = githubIdentity.properties.principalId
 output federatedCredentialSubject string = federatedCredential.properties.subject
 output resourceGroupName string = resourceGroup().name
 output mainContainerName string = mainContainer.name
+output functionAppName string = functionApp.name
+output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
+output storageAccountName string = storageAccount.name
+output applicationInsightsName string = applicationInsights.name
