@@ -67,3 +67,5 @@ Thumbs.db
 temp/
 logs/
 *.tmp
+
+AzuriteConfig
