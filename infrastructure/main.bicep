@@ -4,6 +4,9 @@ param appName string
 @description('リソースグループの場所')
 param location string = resourceGroup().location
 
+@description('Functions App用の場所 (Linux対応リージョン)')
+param functionsLocation string = 'eastus'
+
 @description('App Service Planのサイズ')
 @allowed(['B1', 'B2', 'B3', 'S1', 'S2', 'S3', 'P1V2', 'P2V2', 'P3V2'])
 param appServicePlanSku string = 'B1'
@@ -178,7 +181,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 // Storage Account for Azure Functions
 resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
   name: toLower('${replace(appName, '-', '')}funcstor')
-  location: location
+  location: functionsLocation
   sku: {
     name: 'Standard_LRS'
   }
@@ -204,28 +207,28 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
 // Function App Service Plan (Consumption Plan)
 resource functionAppServicePlan 'Microsoft.Web/serverfarms@2024-11-01' = {
   name: '${appName}-function-plan'
-  location: location
+  location: functionsLocation
   sku: {
     name: 'Y1'
     tier: 'Dynamic'
   }
   properties: {
-    reserved: false  // Windows
+    reserved: true  // Linux
   }
 }
 
 // Function App
 resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
   name: '${appName}-functions'
-  location: location
-  kind: 'functionapp'
+  location: functionsLocation
+  kind: 'functionapp,linux'
   identity: {
     type: 'SystemAssigned'
   }
   properties: {
     serverFarmId: functionAppServicePlan.id
     siteConfig: {
-      pythonVersion: '3.11'
+      linuxFxVersion: 'PYTHON|3.11'
       appSettings: [
         // Azure Functions 必須設定
         {
