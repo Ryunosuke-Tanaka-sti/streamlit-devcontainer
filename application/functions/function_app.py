@@ -177,7 +177,7 @@ def process_scheduled_posts(target_slot: int = None, target_date: str = None) ->
 
 
 @app.timer_trigger(
-    schedule="0 0 0,3,6,12 * * *",
+    schedule="0 */5 * * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
@@ -208,27 +208,24 @@ def auto_poster(myTimer: func.TimerRequest) -> None:
     else:
         execution_time_jst = datetime.now(jst)
 
-    # 実行時刻からslotを判定
+    # テスト用：現在の時間スロットを判定（5分間隔実行用）
     hour = execution_time_jst.hour
-    slot_mapping = {
-        9: 0,  # 09:00 -> slot 0
-        12: 1,  # 12:00 -> slot 1
-        15: 2,  # 15:00 -> slot 2
-        21: 3,  # 21:00 -> slot 3
-    }
-
-    target_slot = slot_mapping.get(hour)
+    
+    # テスト用のslot判定（時間帯に基づく）
+    if 6 <= hour < 11:
+        target_slot = 0  # 朝
+    elif 11 <= hour < 16:
+        target_slot = 1  # 昼
+    elif 16 <= hour < 20:
+        target_slot = 2  # 夕方
+    else:
+        target_slot = 3  # 夜・深夜
+    
     target_date = execution_time_jst.strftime("%Y/%m/%d")
 
     logger.info(
-        f"Timer triggered at {execution_time_jst.strftime('%Y-%m-%d %H:%M:%S %Z')} (Hour: {hour}, Slot: {target_slot})"
+        f"Timer triggered at {execution_time_jst.strftime('%Y-%m-%d %H:%M:%S %Z')} (Hour: {hour}, Test Slot: {target_slot})"
     )
-
-    if target_slot is None:
-        logger.error(
-            f"Unexpected execution hour: {hour}. Expected hours are 9, 12, 15, or 21."
-        )
-        return
 
     # 共通ロジックを実行（明示的にslotとdateを指定）
     result = process_scheduled_posts(target_slot=target_slot, target_date=target_date)
