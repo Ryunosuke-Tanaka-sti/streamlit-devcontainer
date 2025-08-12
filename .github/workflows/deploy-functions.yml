@@ -24,39 +24,108 @@ env:
   PYTHON_VERSION: "3.11"
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
-    if: ${{ github.event.inputs.enable_deploy == 'true' }}
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Azure Login with OIDC
+      - name: Setup Python version
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Create and start virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+          echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Optional: Add step to run tests here
+      - name: Run tests (optional)
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        run: |
+          # python -m pytest tests/ --junitxml=junit/test-results.xml --cov=. --cov-report=xml
+          echo "テストステップをここに追加してください"
+
+      - name: Build and prepare deployment package
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        run: |
+          # 既存の__pycache__とpycファイルをクリーンアップ
+          find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find . -name "*.pyc" -delete 2>/dev/null || true
+          
+          # 依存関係を.python_packagesディレクトリにインストール
+          pip install --target=".python_packages/lib/site-packages" -r requirements.txt
+          
+          # デプロイ用のZipファイルを作成（不要なファイルを除外）
+          zip -r ../../release.zip . \
+            -x "tests/*" \
+            -x "*.pyc" \
+            -x "*/__pycache__/*" \
+            -x "__pycache__/*" \
+            -x "*/.*" \
+            -x ".git/*" \
+            -x "local.settings.json" \
+            -x "README.md"
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: release.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    # enable_deployが有効な場合のみデプロイを実行
+    if: ${{ inputs.enable_deploy == true }}
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Unzip artifact for deployment
+        run: |
+          unzip release.zip -d ./deployment-package
+          ls -la ./deployment-package
+
+      - name: Login to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Setup Python ${{ env.PYTHON_VERSION }} Environment
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: "Resolve Project Dependencies Using Pip"
-        shell: bash
-        run: |
-          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt --target=".python_packages/lib/site-packages"
-          popd
-
       - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
+        id: deploy-to-function
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          slot-name: 'Production'
+          package: './deployment-package'
+          # リモートビルドを有効にして依存関係の問題を回避
           scm-do-build-during-deployment: true
-          enable-oryx-build: true
+
+      - name: Deployment summary
+        run: |
+          echo "✅ Azure Functionsへのデプロイが完了しました"
+          echo "📱 アプリ名: ${{ env.AZURE_FUNCTIONAPP_NAME }}"
+          echo "🌍 環境: ${{ inputs.environment }}"
+          echo "🔗 関数URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net"

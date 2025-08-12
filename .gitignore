@@ -47,7 +47,6 @@ env.bak/
 venv.bak/
 
 # IDE
-.vscode/
 
 # Azure Functions
 local.settings.json

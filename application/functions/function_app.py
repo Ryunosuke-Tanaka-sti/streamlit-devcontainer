@@ -209,24 +209,32 @@ def auto_poster(myTimer: func.TimerRequest) -> None:
         execution_time_jst = datetime.now(jst)
 
     # UTC時間でのslot判定（CRON式に対応）
-    utc_hour = myTimer.schedule_status.last.hour if hasattr(myTimer, 'schedule_status') and myTimer.schedule_status and myTimer.schedule_status.last else datetime.now(timezone.utc).hour
-    
+    utc_hour = (
+        myTimer.schedule_status.last.hour
+        if hasattr(myTimer, "schedule_status")
+        and myTimer.schedule_status
+        and myTimer.schedule_status.last
+        else datetime.now(timezone.utc).hour
+    )
+
     # UTC時間からJST時間スロットへのマッピング
     # UTC 00:00 = JST 09:00 -> slot 0
-    # UTC 03:00 = JST 12:00 -> slot 1  
+    # UTC 03:00 = JST 12:00 -> slot 1
     # UTC 06:00 = JST 15:00 -> slot 2
     # UTC 12:00 = JST 21:00 -> slot 3
     utc_to_slot_mapping = {
-        0: 0,   # UTC 00:00 -> JST 09:00
-        3: 1,   # UTC 03:00 -> JST 12:00
-        6: 2,   # UTC 06:00 -> JST 15:00
-        12: 3   # UTC 12:00 -> JST 21:00
+        0: 0,  # UTC 00:00 -> JST 09:00
+        3: 1,  # UTC 03:00 -> JST 12:00
+        6: 2,  # UTC 06:00 -> JST 15:00
+        12: 3,  # UTC 12:00 -> JST 21:00
     }
-    
+
     target_slot = utc_to_slot_mapping.get(utc_hour)
-    
+
     if target_slot is None:
-        logger.warning(f"Unexpected UTC hour {utc_hour} - Timer should only run at 0, 3, 6, or 12")
+        logger.warning(
+            f"Unexpected UTC hour {utc_hour} - Timer should only run at 0, 3, 6, or 12"
+        )
         return
 
     target_date = execution_time_jst.strftime("%Y/%m/%d")
@@ -234,7 +242,7 @@ def auto_poster(myTimer: func.TimerRequest) -> None:
     # JST時間での実行時刻をログに記録
     jst_hour_mapping = {0: 9, 1: 12, 2: 15, 3: 21}
     jst_hour = jst_hour_mapping.get(target_slot, "Unknown")
-    
+
     logger.info(
         f"Timer triggered at UTC {utc_hour}:00 (JST {jst_hour}:00, Slot: {target_slot}) - JST Date: {target_date}"
     )
