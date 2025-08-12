@@ -5,8 +5,18 @@ FROM mcr.microsoft.com/devcontainers/python:1-3.11-bullseye
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y nodejs
 
+USER vscode
+
+# npmのグローバルディレクトリをvsCodeユーザーのホームディレクトリに設定
+RUN mkdir -p /home/vscode/.npm-global \
+    && npm config set prefix '/home/vscode/.npm-global'
+
+# PATHを設定
+ENV PATH="/home/vscode/.npm-global/bin:$PATH"
+
+# vsCodeユーザーでnpmパッケージをインストール
 RUN npm install -g \
-    @anthropic-ai/claude-code \
+    @anthropic-ai/claude-code@latest \
     azure-functions-core-tools@4 \
     azurite
 
