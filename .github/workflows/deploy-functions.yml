@@ -51,29 +51,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --target=".python_packages/lib/site-packages" -r requirements.txt
 
       # Optional: Add step to run tests here
       - name: Run tests (optional)
-        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
         run: |
           # python -m pytest tests/ --junitxml=junit/test-results.xml --cov=. --cov-report=xml
           echo "テストステップをここに追加してください"
-
-      - name: Build and prepare deployment package
-        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-        run: |
-          # 依存関係を.python_packagesディレクトリにインストール
-          pip install --target=".python_packages/lib/site-packages" -r requirements.txt
           
-          # デプロイ用のZipファイルを作成（不要なファイルを除外）
-          zip -r ../../release.zip .
-
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: release.zip
+          path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -90,11 +80,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-app
-
-      - name: Unzip artifact for deployment
-        run: |
-          unzip release.zip -d ./deployment-package
-          ls -la ./deployment-package
+          path: ./deployment-package
 
       - name: Login to Azure
         uses: azure/login@v2
