@@ -130,8 +130,9 @@ The codebase follows a multi-application architecture:
 ### Azure Functions Architecture (Planned)
 
 #### Automated Posting System
-- **Timer Trigger**: Executes at 09:00, 12:00, 15:00, 21:00 to check for scheduled posts
-- **Time Slot Management**: Uses predefined slots (0-3) for posting times
+- **Timer Trigger**: Executes at UTC 00:00, 03:00, 06:00, 12:00 (JST 09:00, 12:00, 15:00, 21:00)
+- **Timezone Handling**: Functions run in UTC but internally convert to JST for slot determination
+- **Time Slot Management**: Maps UTC hours to JST time slots (0=9AM, 1=12PM, 2=3PM, 3=9PM)
 - **Firestore Integration**: Queries posts by timeSlot and postDate fields
 - **Token Management**: Retrieves and decrypts user access tokens (future implementation)
 - **X API Integration**: Posts tweets and updates isPosted status in Firestore
@@ -183,7 +184,7 @@ Required in `.env` file:
 For Azure Functions (`local.settings.json`):
 - `FUNCTIONS_WORKER_RUNTIME`: python
 - `AzureWebJobsStorage`: Storage connection string
-- `WEBSITE_TIME_ZONE`: Asia/Tokyo (for scheduled posts)
+- Note: `WEBSITE_TIME_ZONE` is NOT supported on Linux Consumption plan
 
 ### Docker Context
 The Dockerfile is located at `application/frontend/Dockerfile` and uses:

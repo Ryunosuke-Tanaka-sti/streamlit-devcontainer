@@ -177,7 +177,7 @@ def process_scheduled_posts(target_slot: int = None, target_date: str = None) ->
 
 
 @app.timer_trigger(
-    schedule="0 */5 * * * *",
+    schedule="0 0 0,3,6,12 * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
@@ -208,23 +208,35 @@ def auto_poster(myTimer: func.TimerRequest) -> None:
     else:
         execution_time_jst = datetime.now(jst)
 
-    # テスト用：現在の時間スロットを判定（5分間隔実行用）
-    hour = execution_time_jst.hour
+    # UTC時間でのslot判定（CRON式に対応）
+    utc_hour = myTimer.schedule_status.last.hour if hasattr(myTimer, 'schedule_status') and myTimer.schedule_status and myTimer.schedule_status.last else datetime.now(timezone.utc).hour
     
-    # テスト用のslot判定（時間帯に基づく）
-    if 6 <= hour < 11:
-        target_slot = 0  # 朝
-    elif 11 <= hour < 16:
-        target_slot = 1  # 昼
-    elif 16 <= hour < 20:
-        target_slot = 2  # 夕方
-    else:
-        target_slot = 3  # 夜・深夜
+    # UTC時間からJST時間スロットへのマッピング
+    # UTC 00:00 = JST 09:00 -> slot 0
+    # UTC 03:00 = JST 12:00 -> slot 1  
+    # UTC 06:00 = JST 15:00 -> slot 2
+    # UTC 12:00 = JST 21:00 -> slot 3
+    utc_to_slot_mapping = {
+        0: 0,   # UTC 00:00 -> JST 09:00
+        3: 1,   # UTC 03:00 -> JST 12:00
+        6: 2,   # UTC 06:00 -> JST 15:00
+        12: 3   # UTC 12:00 -> JST 21:00
+    }
     
+    target_slot = utc_to_slot_mapping.get(utc_hour)
+    
+    if target_slot is None:
+        logger.warning(f"Unexpected UTC hour {utc_hour} - Timer should only run at 0, 3, 6, or 12")
+        return
+
     target_date = execution_time_jst.strftime("%Y/%m/%d")
 
+    # JST時間での実行時刻をログに記録
+    jst_hour_mapping = {0: 9, 1: 12, 2: 15, 3: 21}
+    jst_hour = jst_hour_mapping.get(target_slot, "Unknown")
+    
     logger.info(
-        f"Timer triggered at {execution_time_jst.strftime('%Y-%m-%d %H:%M:%S %Z')} (Hour: {hour}, Test Slot: {target_slot})"
+        f"Timer triggered at UTC {utc_hour}:00 (JST {jst_hour}:00, Slot: {target_slot}) - JST Date: {target_date}"
     )
 
     # 共通ロジックを実行（明示的にslotとdateを指定）
