@@ -25,7 +25,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
     defaults:
@@ -74,7 +74,7 @@ jobs:
 
 
   deploy:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: build
     # enable_deployが有効な場合のみデプロイを実行
     if: ${{ inputs.enable_deploy == true }}
