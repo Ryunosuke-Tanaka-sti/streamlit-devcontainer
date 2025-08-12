@@ -28,8 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    run:
-      working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+    default:
+      run:
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
     steps:
       - name: Checkout repository
