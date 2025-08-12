@@ -183,7 +183,7 @@ def process_scheduled_posts(target_slot: int = None, target_date: str = None) ->
     use_monitor=False,
 )
 def auto_poster(myTimer: func.TimerRequest) -> None:
-    """自動投稿処理のメインエントリーポイント（Timer Trigger）"""
+    """自動投稿処理のメインエントリーポイント（Timer Trigger）ビルドされたか確認用"""
 
     logger.info("Auto poster timer function triggered")
 
