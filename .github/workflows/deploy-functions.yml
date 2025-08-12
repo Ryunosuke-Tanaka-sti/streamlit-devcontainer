@@ -58,7 +58,10 @@ jobs:
         run: |
           # python -m pytest tests/ --junitxml=junit/test-results.xml --cov=. --cov-report=xml
           echo "テストステップをここに追加してください"
-          
+      - name: Check Deploy Files
+        run: |
+          ls -la .
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
