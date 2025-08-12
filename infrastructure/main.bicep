@@ -105,10 +105,6 @@ resource webApp 'Microsoft.Web/sites@2024-11-01' = {
         }
         // Application Insights
         {
-          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
-          value: applicationInsights.properties.InstrumentationKey
-        }
-        {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: applicationInsights.properties.ConnectionString
         }
@@ -252,10 +248,6 @@ resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
           value: 'python'
         }
         // Application Insights
-        {
-          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
-          value: applicationInsights.properties.InstrumentationKey
-        }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: applicationInsights.properties.ConnectionString
