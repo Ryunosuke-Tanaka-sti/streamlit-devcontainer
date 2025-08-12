@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Deployment environment'
+        description: "Deployment environment"
         required: true
-        default: 'production'
+        default: "production"
         type: environment
       enable_deploy:
-        description: 'Enable deployment to Azure Functions'
+        description: "Enable deployment to Azure Functions"
         required: false
         default: true
         type: boolean
@@ -20,18 +20,31 @@ permissions:
 
 env:
   AZURE_FUNCTIONAPP_NAME: ${{ vars.APP_NAME }}-functions
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: './application/functions'
-  PYTHON_VERSION: '3.11'
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: "./application/functions"
+  PYTHON_VERSION: "3.11"
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     if: ${{ github.event.inputs.enable_deploy == 'true' }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }} Environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: "Resolve Project Dependencies Using Pip"
+        shell: bash
+        run: |
+          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+          popd
 
       - name: Azure Login with OIDC
         uses: azure/login@v2
