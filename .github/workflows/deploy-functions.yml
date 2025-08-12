@@ -100,6 +100,9 @@ jobs:
           scm-do-build-during-deployment: true
           enable-oryx-build: true
 
+      - name: Check Deploy Files
+        run: |
+          ls -la ./deployment-package
       - name: Deployment summary
         run: |
           echo "✅ Azure Functionsへのデプロイが完了しました"
