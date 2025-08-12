@@ -28,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    run:
+      working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
     steps:
       - name: Checkout repository
@@ -46,7 +48,6 @@ jobs:
           echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -61,23 +62,10 @@ jobs:
       - name: Build and prepare deployment package
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
         run: |
-          # 既存の__pycache__とpycファイルをクリーンアップ
-          find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-          find . -name "*.pyc" -delete 2>/dev/null || true
-          
-          # 依存関係を.python_packagesディレクトリにインストール
-          pip install --target=".python_packages/lib/site-packages" -r requirements.txt
-          
-          # デプロイ用のZipファイルを作成（不要なファイルを除外）
-          zip -r ../../release.zip . \
-            -x "tests/*" \
-            -x "*.pyc" \
-            -x "*/__pycache__/*" \
-            -x "__pycache__/*" \
-            -x "*/.*" \
-            -x ".git/*" \
-            -x "local.settings.json" \
-            -x "README.md"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+          zip -r ../../release.zip .
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -122,6 +110,7 @@ jobs:
           package: './deployment-package'
           # リモートビルドを有効にして依存関係の問題を回避
           scm-do-build-during-deployment: true
+          enable-oryx-build: true
 
       - name: Deployment summary
         run: |
