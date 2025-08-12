@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    default:
+    defaults:
       run:
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
