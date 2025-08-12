@@ -260,11 +260,6 @@ resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: applicationInsights.properties.ConnectionString
         }
-        // アプリケーション設定
-        {
-          name: 'WEBSITE_TIME_ZONE'
-          value: 'Asia/Tokyo'
-        }
         // Firebase/Firestore設定 (自動投稿に必要)
         {
           name: 'FIREBASE_PROJECT_ID'

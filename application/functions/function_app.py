@@ -177,7 +177,7 @@ def process_scheduled_posts(target_slot: int = None, target_date: str = None) ->
 
 
 @app.timer_trigger(
-    schedule="0 0 9,12,15,21 * * *",
+    schedule="0 0 0,3,6,12 * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
@@ -192,38 +192,44 @@ def auto_poster(myTimer: func.TimerRequest) -> None:
 
     # JST (Asia/Tokyo) タイムゾーンで現在時刻を取得
     jst = timezone(timedelta(hours=9))
-    
+
     # TimerRequestから実行時刻を取得（schedule_statusが利用可能な場合）
     # schedule_statusが利用できない場合は現在時刻を使用
-    if hasattr(myTimer, 'schedule_status') and myTimer.schedule_status:
+    if hasattr(myTimer, "schedule_status") and myTimer.schedule_status:
         # Azure Functionsの仕様により、schedule_statusのtimestampはUTCで提供される
         execution_time = myTimer.schedule_status.last
         if execution_time:
             # UTCからJSTに変換
-            execution_time_jst = execution_time.replace(tzinfo=timezone.utc).astimezone(jst)
+            execution_time_jst = execution_time.replace(tzinfo=timezone.utc).astimezone(
+                jst
+            )
         else:
             execution_time_jst = datetime.now(jst)
     else:
         execution_time_jst = datetime.now(jst)
-    
+
     # 実行時刻からslotを判定
     hour = execution_time_jst.hour
     slot_mapping = {
-        9: 0,   # 09:00 -> slot 0
+        9: 0,  # 09:00 -> slot 0
         12: 1,  # 12:00 -> slot 1
         15: 2,  # 15:00 -> slot 2
-        21: 3   # 21:00 -> slot 3
+        21: 3,  # 21:00 -> slot 3
     }
-    
+
     target_slot = slot_mapping.get(hour)
     target_date = execution_time_jst.strftime("%Y/%m/%d")
-    
-    logger.info(f"Timer triggered at {execution_time_jst.strftime('%Y-%m-%d %H:%M:%S %Z')} (Hour: {hour}, Slot: {target_slot})")
-    
+
+    logger.info(
+        f"Timer triggered at {execution_time_jst.strftime('%Y-%m-%d %H:%M:%S %Z')} (Hour: {hour}, Slot: {target_slot})"
+    )
+
     if target_slot is None:
-        logger.error(f"Unexpected execution hour: {hour}. Expected hours are 9, 12, 15, or 21.")
+        logger.error(
+            f"Unexpected execution hour: {hour}. Expected hours are 9, 12, 15, or 21."
+        )
         return
-    
+
     # 共通ロジックを実行（明示的にslotとdateを指定）
     result = process_scheduled_posts(target_slot=target_slot, target_date=target_date)
 
