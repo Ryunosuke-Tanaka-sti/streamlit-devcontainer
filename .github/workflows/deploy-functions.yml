@@ -62,9 +62,10 @@ jobs:
       - name: Build and prepare deployment package
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
+          # 依存関係を.python_packagesディレクトリにインストール
+          pip install --target=".python_packages/lib/site-packages" -r requirements.txt
+          
+          # デプロイ用のZipファイルを作成（不要なファイルを除外）
           zip -r ../../release.zip .
 
       - name: Upload artifact for deployment job
