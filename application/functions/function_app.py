@@ -1,6 +1,7 @@
 import azure.functions as func
 import logging
-import os
+
+# import os
 from datetime import datetime, timezone, timedelta
 from shared.config import Config
 from shared.firestore_client import get_firestore_client
@@ -256,62 +257,63 @@ def auto_poster(myTimer: func.TimerRequest) -> None:
         logger.info("Timer execution completed successfully")
 
 
-# テスト用HTTP Trigger（本番では無効化）
-if os.getenv("ENABLE_TEST_FUNCTIONS", "false").lower() == "true":
+# # テスト用HTTP Trigger（本番では無効化）
+# if os.getenv("ENABLE_TEST_FUNCTIONS", "false").lower() == "true":
 
-    @app.route(route="test_auto_poster", methods=["GET", "POST"])
-    def test_auto_poster(req: func.HttpRequest) -> func.HttpResponse:
-        """テスト用HTTP Trigger（手動実行可能）"""
 
-        logger.info("Test auto poster HTTP function triggered")
+@app.route(route="test_auto_poster", methods=["GET", "POST"])
+def test_auto_poster(req: func.HttpRequest) -> func.HttpResponse:
+    """テスト用HTTP Trigger（手動実行可能）"""
 
-        try:
-            # クエリパラメータから設定を取得
-            target_slot = req.params.get("slot")
-            target_date = req.params.get("date")
+    logger.info("Test auto poster HTTP function triggered")
 
-            # パラメータの変換
-            if target_slot is not None:
-                try:
-                    target_slot = int(target_slot)
-                    if target_slot not in [0, 1, 2, 3]:
-                        return func.HttpResponse(
-                            "Invalid slot parameter. Must be 0, 1, 2, or 3.",
-                            status_code=400,
-                        )
-                except ValueError:
+    try:
+        # クエリパラメータから設定を取得
+        target_slot = req.params.get("slot")
+        target_date = req.params.get("date")
+
+        # パラメータの変換
+        if target_slot is not None:
+            try:
+                target_slot = int(target_slot)
+                if target_slot not in [0, 1, 2, 3]:
                     return func.HttpResponse(
-                        "Invalid slot parameter. Must be an integer.", status_code=400
+                        "Invalid slot parameter. Must be 0, 1, 2, or 3.",
+                        status_code=400,
                     )
+            except ValueError:
+                return func.HttpResponse(
+                    "Invalid slot parameter. Must be an integer.", status_code=400
+                )
 
-            # 共通ロジックを実行
-            result = process_scheduled_posts(
-                target_slot=target_slot, target_date=target_date
-            )
+        # 共通ロジックを実行
+        result = process_scheduled_posts(
+            target_slot=target_slot, target_date=target_date
+        )
 
-            # レスポンスを作成
-            response_data = {
-                "status": "completed",
-                "success_count": result["success_count"],
-                "error_count": result["error_count"],
-                "messages": result["messages"],
-            }
+        # レスポンスを作成
+        response_data = {
+            "status": "completed",
+            "success_count": result["success_count"],
+            "error_count": result["error_count"],
+            "messages": result["messages"],
+        }
 
-            import json
+        import json
 
-            return func.HttpResponse(
-                json.dumps(response_data, ensure_ascii=False, indent=2),
-                status_code=200,
-                headers={"Content-Type": "application/json; charset=utf-8"},
-            )
+        return func.HttpResponse(
+            json.dumps(response_data, ensure_ascii=False, indent=2),
+            status_code=200,
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
 
-        except Exception as e:
-            logger.error(f"Error in test_auto_poster: {str(e)}")
-            error_response = {"status": "error", "message": str(e)}
-            import json
+    except Exception as e:
+        logger.error(f"Error in test_auto_poster: {str(e)}")
+        error_response = {"status": "error", "message": str(e)}
+        import json
 
-            return func.HttpResponse(
-                json.dumps(error_response, ensure_ascii=False, indent=2),
-                status_code=500,
-                headers={"Content-Type": "application/json; charset=utf-8"},
-            )
+        return func.HttpResponse(
+            json.dumps(error_response, ensure_ascii=False, indent=2),
+            status_code=500,
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
