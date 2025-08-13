@@ -80,6 +80,61 @@ def check_session_timeout():
             st.rerun()
 
 
+def refresh_token_if_needed():
+    """必要に応じてトークンをリフレッシュ"""
+    if not st.session_state.authenticated or not st.session_state.token_data:
+        return False
+
+    oauth_client = XOAuthClient()
+
+    # トークンの有効期限をチェック
+    if oauth_client.is_token_expired(st.session_state.token_data):
+        if st.session_state.refresh_token:
+            try:
+                # リフレッシュトークンで新しいトークンを取得
+                new_token_data = oauth_client.refresh_token(
+                    st.session_state.refresh_token
+                )
+
+                # セッション状態を更新
+                st.session_state.access_token = new_token_data["access_token"]
+                st.session_state.token_data = new_token_data
+
+                # 新しいリフレッシュトークンがあれば更新
+                if "refresh_token" in new_token_data:
+                    st.session_state.refresh_token = new_token_data["refresh_token"]
+
+                # Firestoreにも更新を保存
+                try:
+                    from db.firebase_client import get_firebase_client
+
+                    firebase_client = get_firebase_client()
+                    firebase_client.save_user_token(
+                        access_token=new_token_data["access_token"],
+                        refresh_token=new_token_data.get(
+                            "refresh_token", st.session_state.refresh_token
+                        ),
+                    )
+                except Exception as e:
+                    print(f"Firebase token update error: {e}")
+
+                st.success("✅ アクセストークンを自動更新しました")
+                return True
+
+            except (AuthenticationError, TokenExpiredError) as e:
+                st.warning(f"トークンの自動更新に失敗しました: {str(e)}")
+                st.info("再度ログインしてください")
+                logout()
+                st.rerun()
+
+        else:
+            st.warning("リフレッシュトークンがありません。再度ログインしてください")
+            logout()
+            st.rerun()
+
+    return False
+
+
 def logout():
     """ログアウト処理"""
     st.session_state.authenticated = False
@@ -148,12 +203,15 @@ def handle_oauth_callback():
             st.session_state.token_data = token_data
             st.session_state.auth_start_time = datetime.now().isoformat()
 
-            # Firestoreにアクセストークンを保存
+            # Firestoreにアクセストークンとリフレッシュトークンを保存
             try:
                 from db.firebase_client import get_firebase_client
 
                 firebase_client = get_firebase_client()
-                firebase_client.save_user_token(token_data["access_token"])
+                firebase_client.save_user_token(
+                    access_token=token_data["access_token"],
+                    refresh_token=token_data.get("refresh_token"),
+                )
             except Exception as e:
                 # Firebase接続エラーでもログインは継続
                 print(f"Firebase token save error: {e}")
@@ -376,6 +434,10 @@ def main():
 
         # セッションタイムアウトのチェック
         check_session_timeout()
+
+        # トークンの自動リフレッシュ
+        if st.session_state.authenticated:
+            refresh_token_if_needed()
 
         # OAuth コールバックの処理
         if not st.session_state.authenticated:

@@ -81,32 +81,55 @@ class FirebaseClient:
 
     # === Users コレクション操作 ===
 
-    def save_user_token(self, access_token: str, user_id: str = "main_user") -> bool:
-        """ユーザーのアクセストークンを暗号化して保存"""
+    def save_user_token(
+        self,
+        access_token: str,
+        refresh_token: Optional[str] = None,
+        user_id: str = "main_user",
+    ) -> bool:
+        """ユーザーのアクセストークンとリフレッシュトークンを暗号化して保存"""
         try:
-            encrypted_token = self.encrypt_token(access_token)
+            encrypted_access_token = self.encrypt_token(access_token)
             user_data = {
-                "accessToken": encrypted_token,
+                "accessToken": encrypted_access_token,
                 "updatedAt": firestore.SERVER_TIMESTAMP,
             }
-            self._db.collection("users").document(user_id).set(user_data)
+
+            # リフレッシュトークンがあれば暗号化して保存
+            if refresh_token:
+                encrypted_refresh_token = self.encrypt_token(refresh_token)
+                user_data["refreshToken"] = encrypted_refresh_token
+
+            self._db.collection("users").document(user_id).set(user_data, merge=True)
             return True
         except Exception as e:
             print(f"トークン保存エラー: {e}")
             return False
 
-    def get_user_token(self, user_id: str = "main_user") -> Optional[str]:
-        """ユーザーのアクセストークンを取得して復号化"""
+    def get_user_tokens(self, user_id: str = "main_user") -> Dict[str, Optional[str]]:
+        """ユーザーのアクセストークンとリフレッシュトークンを取得して復号化"""
         try:
             doc = self._db.collection("users").document(user_id).get()
             if doc.exists:
                 data = doc.to_dict()
+                result = {"access_token": None, "refresh_token": None}
+
                 if "accessToken" in data:
-                    return self.decrypt_token(data["accessToken"])
-            return None
+                    result["access_token"] = self.decrypt_token(data["accessToken"])
+
+                if "refreshToken" in data:
+                    result["refresh_token"] = self.decrypt_token(data["refreshToken"])
+
+                return result
+            return {"access_token": None, "refresh_token": None}
         except Exception as e:
             print(f"トークン取得エラー: {e}")
-            return None
+            return {"access_token": None, "refresh_token": None}
+
+    def get_user_token(self, user_id: str = "main_user") -> Optional[str]:
+        """ユーザーのアクセストークンを取得して復号化（後方互換性のため維持）"""
+        tokens = self.get_user_tokens(user_id)
+        return tokens.get("access_token")
 
     # === Posts コレクション操作 ===
 

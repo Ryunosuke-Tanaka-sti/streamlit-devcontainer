@@ -265,6 +265,15 @@ resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
           name: 'ENCRYPTION_KEY'
           value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=encryption-key)'
         }
+        // X API 認証情報 (トークンリフレッシュに必要)
+        {
+          name: 'X_CLIENT_ID'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-id)'
+        }
+        {
+          name: 'X_CLIENT_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=x-client-secret)'
+        }
       ]
       use32BitWorkerProcess: false
       ftpsState: 'Disabled'

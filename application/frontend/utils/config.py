@@ -35,7 +35,7 @@ class Config:
     SESSION_TIMEOUT_MINUTES = 30
 
     # OAuth スコープ
-    OAUTH_SCOPES = ["tweet.write", "users.read", "tweet.read"]
+    OAUTH_SCOPES = ["tweet.write", "users.read", "tweet.read", "offline.access"]
 
     # Firebase/Firestore 設定
     FIREBASE_PROJECT_ID: Optional[str] = None

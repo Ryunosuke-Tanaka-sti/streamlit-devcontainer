@@ -79,26 +79,75 @@ class FirestoreClient:
         """Firestoreデータベースインスタンスを取得"""
         return self._db
 
+    def encrypt_token(self, token: str) -> str:
+        """トークンを暗号化"""
+        if not self._cipher:
+            raise ValueError("暗号化キーが設定されていません")
+        return self._cipher.encrypt(token.encode()).decode()
+
     def decrypt_token(self, encrypted_token: str) -> str:
         """トークンを復号化"""
         if not self._cipher:
             raise ValueError("暗号化キーが設定されていません")
         return self._cipher.decrypt(encrypted_token.encode()).decode()
 
-    def get_user_token(self, user_id: str = "main_user") -> Optional[str]:
-        """ユーザーのアクセストークンを取得して復号化"""
+    def get_user_tokens(self, user_id: str = "main_user") -> Dict[str, Optional[str]]:
+        """ユーザーのアクセストークンとリフレッシュトークンを取得して復号化"""
         try:
             doc = self._db.collection("users").document(user_id).get()
             if doc.exists:
                 data = doc.to_dict()
+                result = {
+                    "access_token": None,
+                    "refresh_token": None
+                }
+
                 if "accessToken" in data:
-                    logger.info(f"ユーザートークン取得: {user_id}")
-                    return self.decrypt_token(data["accessToken"])
+                    result["access_token"] = self.decrypt_token(data["accessToken"])
+                    logger.info(f"アクセストークン取得: {user_id}")
+
+                if "refreshToken" in data:
+                    result["refresh_token"] = self.decrypt_token(data["refreshToken"])
+                    logger.info(f"リフレッシュトークン取得: {user_id}")
+
+                return result
             logger.warning(f"ユーザートークンが見つかりません: {user_id}")
-            return None
+            return {"access_token": None, "refresh_token": None}
         except Exception as e:
             logger.error(f"トークン取得エラー: {e}")
-            return None
+            return {"access_token": None, "refresh_token": None}
+
+    def get_user_token(self, user_id: str = "main_user") -> Optional[str]:
+        """ユーザーのアクセストークンを取得して復号化（後方互換性のため維持）"""
+        tokens = self.get_user_tokens(user_id)
+        return tokens.get("access_token")
+
+    def update_user_tokens(
+        self,
+        access_token: str,
+        refresh_token: Optional[str] = None,
+        user_id: str = "main_user",
+    ) -> bool:
+        """ユーザーのトークンを暗号化して更新"""
+        try:
+            encrypted_access_token = self.encrypt_token(access_token)
+            update_data = {
+                "accessToken": encrypted_access_token,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            }
+
+            if refresh_token:
+                encrypted_refresh_token = self.encrypt_token(refresh_token)
+                update_data["refreshToken"] = encrypted_refresh_token
+
+            self._db.collection("users").document(user_id).set(
+                update_data, merge=True
+            )
+            logger.info(f"ユーザートークン更新: {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"トークン更新エラー: {e}")
+            return False
 
     def get_scheduled_posts(
         self, date_str: str, time_slot: int

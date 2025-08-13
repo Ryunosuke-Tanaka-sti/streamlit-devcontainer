@@ -1,7 +1,7 @@
 import azure.functions as func
 import logging
+import os
 
-# import os
 from datetime import datetime, timezone, timedelta
 from shared.config import Config
 from shared.firestore_client import get_firestore_client
@@ -11,6 +11,7 @@ from shared.x_api_client import (
     RateLimitError,
     AuthenticationError,
 )
+from shared.oauth_client import OAuthClient, TokenError
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -76,30 +77,110 @@ def process_scheduled_posts(target_slot: int = None, target_date: str = None) ->
         logger.info(f"Found {len(posts)} scheduled posts to process")
         messages.append(f"Found {len(posts)} scheduled posts to process")
 
+        # ユーザートークン取得（アクセストークンとリフレッシュトークン）
+        tokens = fs_client.get_user_tokens()  # デフォルトユーザー "main_user" を使用
+        access_token = tokens.get("access_token")
+        refresh_token = tokens.get("refresh_token")
+
+        if not access_token:
+            error_msg = "No access token found for user"
+            logger.error(error_msg)
+            messages.append(error_msg)
+            
+            # すべての投稿をエラーとして記録
+            for post in posts:
+                fs_client.update_post_status(
+                    post_id=post["id"],
+                    is_posted=False,
+                    error_message="アクセストークンが見つかりません",
+                )
+            
+            return {
+                "success_count": 0,
+                "error_count": len(posts),
+                "messages": messages,
+            }
+
+        # トークンの検証とリフレッシュ（一度だけ実行）
+        client_id = os.getenv("X_CLIENT_ID")
+        client_secret = os.getenv("X_CLIENT_SECRET")
+        
+        if client_id and client_secret:
+            oauth_client = OAuthClient(client_id, client_secret)
+            logger.info("OAuth client initialized for token refresh")
+            
+            # トークンの有効性を確認
+            logger.info("Validating access token")
+            if not oauth_client.verify_token(access_token):
+                logger.info("Access token is invalid or expired, attempting refresh")
+                
+                if refresh_token:
+                    try:
+                        # リフレッシュトークンで新しいアクセストークンを取得
+                        new_token_data = oauth_client.refresh_access_token(refresh_token)
+                        access_token = new_token_data.get("access_token")
+                        new_refresh_token = new_token_data.get("refresh_token", refresh_token)
+                        
+                        # Firestoreに新しいトークンを保存
+                        logger.info("Saving refreshed tokens to Firestore")
+                        fs_client.update_user_tokens(
+                            access_token=access_token,
+                            refresh_token=new_refresh_token
+                        )
+                        
+                        success_msg = "Successfully refreshed access token"
+                        logger.info(success_msg)
+                        messages.append(success_msg)
+                        
+                    except TokenError as e:
+                        error_msg = f"Failed to refresh token: {str(e)}"
+                        logger.error(error_msg)
+                        messages.append(error_msg)
+                        
+                        # すべての投稿をエラーとして記録
+                        for post in posts:
+                            fs_client.update_post_status(
+                                post_id=post["id"],
+                                is_posted=False,
+                                error_message=f"トークンリフレッシュエラー: {str(e)}",
+                            )
+                        
+                        return {
+                            "success_count": 0,
+                            "error_count": len(posts),
+                            "messages": messages,
+                        }
+                else:
+                    error_msg = "No refresh token available"
+                    logger.error(error_msg)
+                    messages.append(error_msg)
+                    
+                    # すべての投稿をエラーとして記録
+                    for post in posts:
+                        fs_client.update_post_status(
+                            post_id=post["id"],
+                            is_posted=False,
+                            error_message="リフレッシュトークンがありません",
+                        )
+                    
+                    return {
+                        "success_count": 0,
+                        "error_count": len(posts),
+                        "messages": messages,
+                    }
+            else:
+                logger.info("Access token is valid")
+        else:
+            logger.warning("X API credentials not configured - token refresh disabled")
+
+        # 投稿処理を実行
         success_count = 0
         error_count = 0
 
         for post in posts:
             try:
-                # ユーザートークン取得
-                token = (
-                    fs_client.get_user_token()
-                )  # デフォルトユーザー "main_user" を使用
-
-                if not token:
-                    error_msg = f"No access token found for post {post['id']}"
-                    logger.error(error_msg)
-                    messages.append(error_msg)
-                    fs_client.update_post_status(
-                        post_id=post["id"],
-                        is_posted=False,
-                        error_message="アクセストークンが見つかりません",
-                    )
-                    error_count += 1
-                    continue
-
-                # X API投稿
-                with XAPIClient(token) as x_client:
+                # X API投稿（検証済みのアクセストークンを使用）
+                with XAPIClient(access_token) as x_client:
                     result = x_client.post_tweet(post["content"])
 
                     # ステータス更新

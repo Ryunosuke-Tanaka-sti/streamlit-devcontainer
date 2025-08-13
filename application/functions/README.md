@@ -38,11 +38,13 @@ application/functions/
   "FIREBASE_SERVICE_ACCOUNT_BASE64": "your-base64-encoded-service-account-json",
   "ENCRYPTION_KEY": "your-fernet-encryption-key",
   "FIRESTORE_REGION": "asia-northeast1",
-  "WEBSITE_TIME_ZONE": "Asia/Tokyo"
+  "WEBSITE_TIME_ZONE": "Asia/Tokyo",
+  "X_CLIENT_ID": "your-x-api-client-id",
+  "X_CLIENT_SECRET": "your-x-api-client-secret"
 }
 ```
 
-**注意**: Azure Functions では X API の認証情報は不要です。アクセストークンはFirestoreに暗号化されて保存されており、そこから取得します。上記の環境変数はフロントエンドアプリケーションと共通の設定です。
+**重要**: X API の Client ID と Client Secret はトークンのリフレッシュに必要です。これらの値はフロントエンドアプリケーションと同じものを使用してください。
 
 ### Timer スケジュール
 
@@ -55,9 +57,11 @@ CRON式: `0 0 9,12,15,21 * * *`
 1. **Timer実行**: 指定時刻にFunction起動
 2. **時間判定**: 現在時刻が投稿時間スロットかチェック
 3. **データ取得**: Firestoreから該当する予約投稿を取得
-4. **トークン取得**: ユーザーのアクセストークンを復号
-5. **投稿実行**: X API v2 を使用してツイート
-6. **結果更新**: 投稿状況をFirestoreに記録
+4. **トークン取得**: ユーザーのアクセストークンとリフレッシュトークンを復号
+5. **トークン検証**: アクセストークンの有効性を確認
+6. **トークンリフレッシュ**: 無効な場合、リフレッシュトークンで新しいアクセストークンを取得
+7. **投稿実行**: 有効なアクセストークンでX API v2 を使用してツイート
+8. **結果更新**: 投稿状況とトークン（更新された場合）をFirestoreに記録
 
 ## ローカル開発
 
@@ -179,7 +183,10 @@ azurite --silent --location c:/azurite --debug c:/azurite/debug.log
 
 - Firebase サービスアカウント JSON が正しく設定されているか確認
 - 暗号化キーが正しく設定されているか確認
-- Firestore に保存されたアクセストークンの有効性を確認（フロントエンドアプリで再認証が必要な場合があります）
+- X API の Client ID と Client Secret が正しく設定されているか確認
+- Firestore に保存されたアクセストークンの有効性を確認
+- リフレッシュトークンが保存されているか確認（フロントエンドで `offline.access` スコープが必要）
+- トークンリフレッシュに失敗する場合、フロントエンドアプリで再認証が必要
 
 ### タイムゾーンの問題
 
